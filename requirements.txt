@@ -1,0 +1,6 @@
+allure-behave==2.13.2
+allure-python-commons==2.13.2
+behave==1.2.6
+python-benedict==0.33.0
+pyhamcrest==2.1.0
+PyYAML==6.0.1

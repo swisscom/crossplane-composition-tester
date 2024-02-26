@@ -1,0 +1,256 @@
+# Copyright 2023 Swisscom (Schweiz) AG
+
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+
+#     http://www.apache.org/licenses/LICENSE-2.0
+
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: xsrvaccounts.aws.tde.swisscom.com
+spec:
+  compositeTypeRef:
+    apiVersion: tde.swisscom.com/v1alpha1
+    kind: XSrvAccount
+
+  environment:
+    environmentConfigs:
+      - type: Reference
+        ref:
+          name: iaws-main
+
+  mode: Pipeline
+  pipeline:
+  - functionRef:
+      name: function-go-templating
+    step: role-and-policies
+    input:
+      apiVersion: gotemplating.fn.crossplane.io/v1beta1
+      kind: GoTemplate
+      source: Inline
+      inline:
+        template: |-
+          {{ $accountId:=(index .context "apiextensions.crossplane.io/environment").accountId }}
+          {{ $region:=(index .context "apiextensions.crossplane.io/environment").region }}
+          {{ $eksOID:=(index .context "apiextensions.crossplane.io/environment").eksOID }}
+          {{ $claimName:=(index .observed.composite.resource.metadata.labels "crossplane.io/claim-name") }}
+          {{ $roleName:=$claimName }}
+          {{ $serviceAccountName:=.observed.composite.resource.spec.serviceAccountName }}
+          {{ $serviceAccountNamespace:=.observed.composite.resource.spec.serviceAccountNamespace }}
+
+          ---
+          apiVersion: iam.aws.crossplane.io/v1beta1
+          kind: Role
+          metadata:
+            annotations:
+              gotemplating.fn.crossplane.io/composition-resource-name: role
+            name: {{$roleName}}
+          spec:
+            forProvider:
+              assumeRolePolicyDocument: |
+                {
+                  "Version": "2012-10-17",
+                  "Statement": [
+                    {
+                      "Effect": "Allow",
+                      "Principal": {
+                        "Federated": "arn:aws:iam::{{$accountId}}:oidc-provider/oidc.eks.{{$region}}.amazonaws.com/id/{{$eksOID}}"
+                      },
+                      "Action": "sts:AssumeRoleWithWebIdentity",
+                      "Condition": {
+                        "StringLike": {
+                          "oidc.eks.{{$region}}.amazonaws.com/id/{{$eksOID}}:aud": "sts.amazonaws.com",
+                          "oidc.eks.{{$region}}.amazonaws.com/id/{{$eksOID}}:sub": "system:serviceaccount:{{$serviceAccountNamespace}}:*"
+                        }
+                      }
+                    }
+                  ]
+                }
+              permissionsBoundary: arn:aws:iam::{{$accountId}}:policy/sc-policy-cdk-pipeline-permission-boundary
+            providerConfigRef:
+              name: providerconfig-aws
+          ---
+          apiVersion: iam.aws.crossplane.io/v1beta1
+          kind: Policy
+          metadata:
+            annotations:
+              gotemplating.fn.crossplane.io/composition-resource-name: default-policy
+          spec:
+            forProvider:
+              name: {{$claimName}}-default-policy
+              document: |
+                {
+                  "Version": "2012-10-17",
+                  "Statement": [
+                    {
+                      "Effect": "Allow",
+                      "Action": [ "secretsmanager:GetSecretValue", "secretsmanager:DescribeSecret" ],
+                      "Resource": "arn:aws:secretsmanager:{{$region}}:{{$accountId}}:secret:/all/*"
+                    },
+                    {
+                      "Effect": "Allow",
+                      "Action": [ "secretsmanager:GetSecretValue", "secretsmanager:DescribeSecret" ],
+                      "Resource": "arn:aws:secretsmanager:{{$region}}:{{$accountId}}:secret:/{{$serviceAccountName}}/*"
+                    },
+                    {
+                      "Condition": {
+                          "StringEqualsIgnoreCase": {
+                              "aws:ResourceTag/k8s:sa:{{$serviceAccountName}}": "true"
+                          }
+                      },
+                      "Effect": "Allow",
+                      "Action": [ "secretsmanager:GetSecretValue", "secretsmanager:DescribeSecret" ],
+                      "Resource": "arn:aws:secretsmanager:{{$region}}:{{$accountId}}:secret:*"
+                    },
+                    {
+                      "Condition": {
+                          "StringEqualsIgnoreCase": {
+                              "aws:ResourceTag/k8s:sa:{{$serviceAccountName}}": "true"
+                          }
+                      },
+                      "Effect": "Allow",
+                      "Action": [ "kms:Decrypt", "kms:DescribeKey" ],
+                      "Resource": "arn:aws:kms:{{$region}}:{{$accountId}}:key/*"
+                    }
+                  ]
+                }
+
+            providerConfigRef:
+              name: providerconfig-aws              
+          ---
+          
+          {{/* Create the custom policies provided in the claim, if they are present */}}
+          {{ range $customPolicy := .observed.composite.resource.spec.customPolicies }}
+          apiVersion: iam.aws.crossplane.io/v1beta1
+          kind: Policy
+          metadata:
+            annotations:
+              gotemplating.fn.crossplane.io/composition-resource-name: policy-{{$customPolicy.name}}
+          spec:
+            forProvider:
+              name: {{$claimName}}-{{$customPolicy.name}}-policy
+              document: {{ toJson ($customPolicy.policyDocument) }}
+            providerConfigRef:
+              name: providerconfig-aws
+          ---
+          {{ end }}
+
+          {{/* Attach the policies after the role is READY */}}
+
+          {{ if and (ne .observed.resources nil) (ne ( index .observed.resources "role" ) nil) }}
+          {{ if eq (.observed.resources.role | getResourceCondition "Ready").Status "True" }}
+
+          {{/* Attach the policies with ARN from the claim, if they are present */}}
+          {{ with $policiesARN := .observed.composite.resource.spec.policiesARN }}
+          {{ range $policyIndex, $policyArn := $policiesARN }}
+          apiVersion: iam.aws.crossplane.io/v1beta1
+          kind: RolePolicyAttachment
+          metadata:
+            annotations:
+              gotemplating.fn.crossplane.io/composition-resource-name: {{$claimName}}-rpa-{{$policyIndex}}
+          spec:
+            forProvider:
+              policyArn: {{$policyArn}}
+              roleName: {{$roleName}}
+            providerConfigRef:
+              name: providerconfig-aws
+          ---
+          {{ end }}
+          {{ end }}
+          
+          {{/* Attach the custom policies from the claim, if they are present */}}
+          {{ range $customPolicy := .observed.composite.resource.spec.customPolicies }}
+          {{ with $customPolicyName := cat "policy-" ($customPolicy.name) }}
+          {{ if and (ne (index .observed.resources $customPolicyName) nil) (eq (index .observed.resources $customPolicyName | getResourceCondition "Ready").Status "True") }}          
+          {{ with $customPolicyArn:=(index .observed.resources $customPolicyName).resource.status.atProvider.arn }}
+          apiVersion: iam.aws.crossplane.io/v1beta1
+          kind: RolePolicyAttachment
+          metadata:
+            annotations:
+              gotemplating.fn.crossplane.io/composition-resource-name: {{$claimName}}-rpa-{{$customPolicyName}}
+          spec:
+            forProvider:
+              policyArn: {{$customPolicyArn}}
+              roleName: {{$roleName}}
+            providerConfigRef:
+              name: providerconfig-aws
+          ---
+          {{ end }}
+          {{ end }}
+          {{ end }}
+          {{ end }}
+
+
+          {{/* Attach the default policy after it is READY */}}
+          {{ if and (ne (index .observed.resources "default-policy") nil) (eq (index .observed.resources "default-policy" | getResourceCondition "Ready").Status "True") }}          
+          {{ with $defaultPolicyArn:=(index .observed.resources "default-policy").resource.status.atProvider.arn }}
+          apiVersion: iam.aws.crossplane.io/v1beta1
+          kind: RolePolicyAttachment
+          metadata:
+            annotations:
+              gotemplating.fn.crossplane.io/composition-resource-name: {{$claimName}}-rpa-default-policy
+          spec:
+            forProvider:
+              policyArn: {{$defaultPolicyArn}}
+              roleName: {{$roleName}}
+            providerConfigRef:
+              name: providerconfig-aws
+          ---
+          {{ end }}
+          {{ end }}
+
+          {{ end }}
+          {{ end }}
+
+  - functionRef:
+      name: function-go-templating
+    step: service-account
+    input:
+      apiVersion: gotemplating.fn.crossplane.io/v1beta1
+      kind: GoTemplate
+      source: Inline
+      inline:
+        template: |-
+          {{ $claimName:=(index .observed.composite.resource.metadata.labels "crossplane.io/claim-name") }}
+          {{ $serviceAccountName:=.observed.composite.resource.spec.serviceAccountName }}
+          {{ $serviceAccountNamespace:=.observed.composite.resource.spec.serviceAccountNamespace }}
+
+          {{/* Wait for the role ARN to be available, then create the service account*/}}
+          {{ if and (ne .observed.resources nil) (ne ( index .observed.resources "role" ) nil) }}
+          {{ if eq (.observed.resources.role | getResourceCondition "Ready").Status "True" }}
+          
+          {{ with $roleArn:=(index .observed.resources "role").resource.status.atProvider.arn }}
+          ---
+          apiVersion: kubernetes.crossplane.io/v1alpha1
+          kind: Object
+          metadata:
+            annotations:
+              gotemplating.fn.crossplane.io/composition-resource-name: {{$claimName}}
+          spec:
+            forProvider:
+              manifest:
+                apiVersion: v1
+                kind: ServiceAccount
+                metadata:
+                  annotations:
+                    eks.amazonaws.com/role-arn: {{$roleArn}}
+                  name: {{$serviceAccountName}}
+                  namespace: {{$serviceAccountNamespace}}
+            providerConfigRef:
+              name: providerconfig-k8s
+          {{ end }}
+
+          {{ end }}
+          {{ end }}
+
+  - step: automatically-detect-ready-composed-resources
+    functionRef:
+      name: function-auto-ready
