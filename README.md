@@ -28,7 +28,6 @@ In order to get started, we set up an [example composition for a service account
 The composition will create the following resources:
 - a `Role`
 - a default `Policy`
-- a list of policies ARNs provided in the claim
 - a `RolePolicyAttachment` for each policy **once the role and the policies are ready** 
 - a `ServiceAccount` object **once the role is ready**
 

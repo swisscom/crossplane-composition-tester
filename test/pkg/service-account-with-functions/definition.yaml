@@ -1,0 +1,46 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: CompositeResourceDefinition
+metadata:
+  name: xsrvaccounts.srvaccount.example.com
+spec:
+  group: srvaccount.example.com
+  names:
+    kind: XSrvAccount
+    plural: xsrvaccounts
+  claimNames:
+    kind: SrvAccount
+    plural: srvaccounts
+  enforcedCompositionRef:
+    name: xsrvaccounts.aws.srvaccount.example.com
+  defaultCompositionUpdatePolicy: Automatic
+  defaultCompositeDeletePolicy: Foreground
+  versions:
+    - name: v1alpha1
+      served: true
+      referenceable: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:
+                serviceAccountName:
+                  type: string
+                  description: The name of SA
+                serviceAccountNamespace:
+                  type: string
+                  description: The namespace of SA
+                policiesARN:
+                  type: array
+                  description: List of policies ARN to attach
+                  items:
+                    type: string
+              required:
+                - serviceAccountName
+                - serviceAccountNamespace
+            status:
+              type: object
+              properties:
+                record-iteration:
+                  type: integer                
