@@ -1,5 +1,5 @@
-# Crossplane Compostition Tester
-Test your crossplane compositions using BDD (Behavior Driven Development). 
+# Crossplane Composition Tester
+Test Crossplane compositions implemented with composition functions using BDD (Behavior Driven Development). 
 If you're not familiar with BDD, check out [this](https://cucumber.io/docs/bdd/). 
 
 [Cucumber](https://cucumber.io/docs/guides/overview/) is a popular BDD framework for testing. It follows the 
@@ -28,7 +28,6 @@ In order to get started, we set up an [example composition for a service account
 The composition will create the following resources:
 - a `Role`
 - a default `Policy`
-- Any custom policies or predefined policies ARNs provided in the claim
 - a `RolePolicyAttachment` for each policy **once the role and the policies are ready** 
 - a `ServiceAccount` object **once the role is ready**
 
@@ -72,7 +71,7 @@ This tool aims to solve this problem by allowing you to test your compositions l
 in a way that is easy to read and reason about. This tool relies on two main components:
 - [behave](https://behave.readthedocs.io/en/stable/) - A python implementation of Cucumber, that allows you to define your tests in plain english
 in a BDD (Given, When, Then) format. 
-- Crossplane [composition functions](https://docs.crossplane.io/latest/concepts/composition-functions/).
+- Crossplane CLI with the [*render* functionality](https://docs.crossplane.io/latest/cli/command-reference/#beta-render).
 
 The Crossplane v1.14 release introduced a new major feature, [composition functions](https://docs.crossplane.io/latest/concepts/composition-functions/).
 Composition functions allow you to define your composition programmatically using a language of your choice (python, go, etc). 
@@ -97,9 +96,9 @@ For example in Jenkins, you can install the [Allure plugin](https://plugins.jenk
 then run the `tests_runner.sh` script which will run the tests with `behave` and generate allure-reports that can 
 then be viewed in Jenkins as seen in the [Quickstart](##quick-start).
 
-## Features Reference
+## Steps Reference
 
-This is an overview of all the features that are currently supported. More can be added later.
+This is an overview of all the step types that are currently supported. They reflect the AAA (Arrange-Act-Assert) pattern to structure tests. 
 
 ### Given (Arrange)
 
