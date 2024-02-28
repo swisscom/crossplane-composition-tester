@@ -15,10 +15,10 @@
 apiVersion: apiextensions.crossplane.io/v1
 kind: Composition
 metadata:
-  name: xsrvaccounts.aws.tde.swisscom.com
+  name: xsrvaccounts.aws.srvaccount.example.com
 spec:
   compositeTypeRef:
-    apiVersion: tde.swisscom.com/v1alpha1
+    apiVersion: srvaccount.example.com/v1alpha1
     kind: XSrvAccount
 
   environment:

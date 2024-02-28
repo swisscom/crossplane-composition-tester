@@ -35,20 +35,6 @@ logger.setLevel(logging.INFO)
 
 # doc: https://behave.readthedocs.io/en/latest/
 
-# TODO: add stage to jenkins in integration
-# TODO: update READ ME (for default input file names claim, composition etc)
-# TODO: attach modified claims to allure instead of saving them as files
-# TODO: Format error messages (Check Hamcrest matchers)
-# TODO: Think of creating a model
-# TODO: Maybe create DOCS (swagger like)
-# TODO: test might take time because of render
-# TODO: output of render might change (check the TODO here: https://github.com/crossplane/crossplane/blob/f1da178be7aa3d186bffc0befca0a85db981b686/cmd/crank/beta/render/cmd.go#L176)
-# TODO: function auto ready does not set status in output of render (check related issue on github)
-# TODO: functionality to save iterations with iteration numbers
-# TODO: Introduce top-level arguments (e.g. for logging) inside the feature file (or better yet, inside the environment file). Or maybe even better, inside the command line arguments.
-# TODO: Good to read for those who are not familiar with BDD (https://behave.github.io/behave.example/intro.html#given-when-then)
-# TODO: package as python library?
-
 @given("input compositions directory {compositions_directory}")
 def prepare_compositions_directory(ctx: Context, compositions_directory):
     """Prepare working directory with the compositions for the test. This handles the case where compositions
@@ -143,8 +129,6 @@ def render(ctx: Context):
     #  - functions - default ones would be in xplane-pkg repo
     #  - context from the environment file - default ones would be in xplane-pkg repo
 
-    # TODO: Add timeout to render?
-
     # logger.info("rendering composition")
     args = prepare_render_args(ctx, log_input=False)
 
@@ -196,8 +180,6 @@ def check_resource_parameters(ctx, resource):
 
     for row in ctx.table:
         param_name, param_value = row['param name'], row['param value']
-
-        # TODO: Have support for operators like {regex} or {contains}
         assert_has_resource_entry(resource, param_name, value=param_value)
 
 

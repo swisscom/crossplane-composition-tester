@@ -65,11 +65,7 @@ Feature: Service Account composition
     Given change observed resource green-demo-sa-rpa-default-policy with status READY
     And change observed resource green-demo-sa with status READY
     When crossplane renders the composition
-    # TODO: we can't check this?
-    # Then composite is READY
-    # Then fail here
 
-  # TODO: check context is emptied after scenario
 
   @normal
   Scenario: service account with 1 policyARN
@@ -94,7 +90,7 @@ Feature: Service Account composition
       | green-demo-sa-rpa-default-policy |
       | green-demo-sa-rpa-0              |
       | green-demo-sa                    |
-    # TODO: trim whitespace around strings
+    
     And check that resource green-demo-sa-rpa-0 has parameters
       | param name                 | param value   |
       | spec.forProvider.roleName  | green-demo-sa |
@@ -114,7 +110,6 @@ Feature: Service Account composition
     # render 1
     Given input claim is changed with parameters
       | param name       | param value                 |
-      # TODO: cannot write policyArn1, policyArn2 (because of whitespace)
       | spec.policiesARN | \list policyArn1,policyArn2 |
     When crossplane renders the composition
     Then check that 2 resources are provisioning
@@ -139,7 +134,6 @@ Feature: Service Account composition
       | green-demo-sa-rpa-0              |
       | green-demo-sa-rpa-1              |
       | green-demo-sa                    |
-    # TODO: trim whitespace around strings
     And check that resource green-demo-sa-rpa-0 has parameters
       | param name                 | param value   |
       | spec.forProvider.roleName  | green-demo-sa |
@@ -154,39 +148,3 @@ Feature: Service Account composition
     Given change all observed resources with status NOT READY
     When crossplane renders the composition
     Then log desired resources
-
-    # Then fail here
-    # Then composite is READY -> depends on the implementation of https://github.com/crossplane/crossplane/issues/4810 in the renderer
-
-#  @normal
-#  Scenario: service account with 2 custom policies
-#    Given claim claim_service_account_with_2_custom_policies.yaml
-#    And we apply the claim
-#    Then check that 4 resources are provisioning and they are
-#      | resource-name          |
-#      | role                   |
-#      | default-policy         |
-#      | policy-custom-policy-1 |
-#      | policy-custom-policy-2 |
-#
-#    Given all resources are READY
-#    And resource policy-custom-policy-1 is updated with
-#      | param name            | param value      |
-#      | status.atProvider.arn | customPolicyArn1 |
-#    And resource policy-custom-policy-2 is updated with
-#      | param name            | param value      |
-#      | status.atProvider.arn | customPolicyArn2 |
-#    And resource default-policy is updated with
-#      | param name            | param value         |
-#      | status.atProvider.arn | arn::default-policy |
-#    When crossplane renders the composition
-#    Then check that 7 resources are provisioning
-
-
-  #   Scenario: service account with 2 policyARNs
-  #     # similar
-
-  #   Scenario: service account with 1 custom policy
-  #   Scenario: service account with 2 custom policies
-  #   Scenario: service account with 2 policyARNs and 2 custom policies
-  # TODO: Add cleanup for test input files (e.g claim)
