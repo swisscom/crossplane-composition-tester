@@ -214,6 +214,12 @@ def parse_value_cmd(value: str):
         cmd, args = value_split[0], value_split[1]
         if cmd == "\list":
             value = args.split(',')
+        elif cmd == "\int":
+            value = int(args)
+        elif cmd == "\float":
+            value = float(args)
+        elif cmd == "\str":
+            value = str(args)
         else:
             raise NotImplementedError(f"unknown command {cmd}")
 
