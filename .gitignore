@@ -163,3 +163,5 @@ cython_debug/
 .target_tests
 allure_reports/
 cucumber_reports/
+allure-report/
+allure_results/

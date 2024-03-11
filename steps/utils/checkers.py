@@ -14,7 +14,7 @@
 
 from hamcrest import assert_that, equal_to, none, is_not, has_item, any_of, empty
 
-from steps.utils.utils import get_resource_entry
+from steps.utils.utils import get_resource_entry, parse_value_cmd
 
 
 def assert_has_resource_entry(resource, key: str, value: str = None):
@@ -33,6 +33,7 @@ def assert_has_resource_entry(resource, key: str, value: str = None):
     result = get_resource_entry(resource, key)
 
     if value:
+        value = parse_value_cmd(value)
         assert_that(result == value, f"resource does not have {key} with value {value}")
     else:
         assert_that(result, is_not(None), f"resource does not have {key}")
