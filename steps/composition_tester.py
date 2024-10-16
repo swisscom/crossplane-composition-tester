@@ -42,7 +42,8 @@ def prepare_compositions_directory(ctx: Context, compositions_directory):
         ctx {Context} -- behave context
     """
     ctx.compositions_directory = compositions_directory
-    logger.info(f"Current working directory with compositions {compositions_directory}")
+    logger.info(
+        f"Current working directory with compositions {compositions_directory}")
 
 
 @given("input claim is changed with parameters")
@@ -145,7 +146,7 @@ def prepare_functions(ctx: Context, functions_file):
 
     functions_folder_path = ctx.functions_folder_path
     if ctx.on_ci:
-        # If running on CI, use the CI version of the functions file 
+        # If running on CI, use the CI version of the functions file
         functions_file_name = functions_file.split(".yaml")[0]
         functions_file = f"{functions_file_name}-ci.yaml"
     prepare_file(
@@ -155,6 +156,7 @@ def prepare_functions(ctx: Context, functions_file):
         load_into_context=False,
         attach_to_allure=False,
     )
+
 
 @given("input observed state {observed_state_file} for next rendering")
 def prepare_observed_state(ctx: Context, observed_state_file):
@@ -174,7 +176,7 @@ def prepare_observed_state(ctx: Context, observed_state_file):
         attach_to_allure=True,
     )
 
-    
+
 @step("crossplane renders the composition")
 def render(ctx: Context):
     # get what is needed from the context:
@@ -205,12 +207,9 @@ def render(ctx: Context):
 @then("check that no resources are provisioning")
 def check_no_resources(ctx: Context):
     # ignore the xr, get only desired resources
-    desired_resources = get_from_context(ctx, CTX_DESIRED_RESOURCES, assert_exists=False)
-    assert_that(
-        desired_resources,
-        any_of(none(), empty()),
-        f"expected no resources, got {desired_resources}",
-    )
+    desired_resources = get_from_context(
+        ctx, CTX_DESIRED_RESOURCES, assert_exists=False)
+    check_resources_are_empty(desired_resources)
 
 
 @step("check that {resource_count:d} resource is provisioning")
@@ -243,7 +242,8 @@ def check_resource_count_and_names(ctx: Context, resource_count: int):
 def check_resource_parameters_with_key_prefix(ctx, resource_name, key):
     # logger.info(f"check the resource {resource_name} parameters under key {key}:")
 
-    resource = get_resource_from_context(ctx, resource_name, assert_exists=True)
+    resource = get_resource_from_context(
+        ctx, resource_name, assert_exists=True)
 
     for row in ctx.table:
         param_name, param_value = row["param name"], row["param value"]
@@ -269,7 +269,8 @@ def check_resource_parameters(ctx, resource_name):
 def check_resource_missing_parameters_with_key_prefix(ctx, resource_name, key):
     # logger.info(f"check the resource {resource_name} parameters under key {key}:")
 
-    resource = get_resource_from_context(ctx, resource_name, assert_exists=True)
+    resource = get_resource_from_context(
+        ctx, resource_name, assert_exists=True)
 
     for row in ctx.table:
         param_name = row["param name"]
@@ -282,13 +283,15 @@ def check_resource_missing_parameters_with_key_prefix(ctx, resource_name, key):
 
 @step("check that resource {resource_name} does not have parameters")
 def check_resource_missing_parameters(ctx, resource_name):
-    check_resource_missing_parameters_with_key_prefix(ctx, resource_name, key="")
+    check_resource_missing_parameters_with_key_prefix(
+        ctx, resource_name, key="")
 
 
 @step("check that resource {resource_name} has array parameters of length")
 def check_resource_array_parameters_length(ctx, resource_name):
     # logger.info(f"check that resource {resource_name} has array parameters of length:")
-    resource = get_resource_from_context(ctx, resource_name, assert_exists=True)
+    resource = get_resource_from_context(
+        ctx, resource_name, assert_exists=True)
 
     for row in ctx.table:
         param_name, array_length = row["param name"], int(row["length"])
@@ -296,13 +299,15 @@ def check_resource_array_parameters_length(ctx, resource_name):
         assert_resource_array_param_has_length(
             resource_name, resource, param_name, array_length
         )
-        
+
+
 @step("check that xr has status parameters")
 @step("check that composite has status parameters")
 def check_composite_status_parameters(ctx):
     # Get the xr from context
-    desired_xr = get_from_context(ctx, CTX_DESIRED_COMPOSITE, assert_exists=True)
-    
+    desired_xr = get_from_context(
+        ctx, CTX_DESIRED_COMPOSITE, assert_exists=True)
+
     for row in ctx.table:
         param_name, param_value = row["param name"], row["param value"]
         param_name = f"status.{param_name}"
@@ -311,7 +316,6 @@ def check_composite_status_parameters(ctx):
         assert_has_resource_entry(
             "composite", desired_xr, param_name, value=param_value
         )
-    
 
 
 @step(
@@ -387,7 +391,8 @@ def all_resources_are_ready(ctx: Context, new_status: str):
     Raises:
         AssertionError: no desired resources found in context
     """
-    desired_resources = get_from_context(ctx, CTX_DESIRED_RESOURCES, assert_exists=True)
+    desired_resources = get_from_context(
+        ctx, CTX_DESIRED_RESOURCES, assert_exists=True)
     for resource_name in desired_resources.keys():
         set_resource_status(ctx, resource_name, new_status)
 

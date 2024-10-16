@@ -43,7 +43,8 @@ def prepare_file(ctx: Context, kind: str, filepath: str, load_into_context: bool
         AssertionError: file does not exist
     """
     filepath = Path(filepath)
-    assert_that(os.path.exists(filepath), f"{kind} file ({filepath}) does not exist")
+    assert_that(os.path.exists(filepath),
+                f"{kind} file ({filepath}) does not exist")
 
     # load the filepath to the resource to the context
     setattr(ctx, f"{kind}_filepath", filepath)
@@ -57,7 +58,8 @@ def prepare_file(ctx: Context, kind: str, filepath: str, load_into_context: bool
             else:
                 loaded_input = yaml.safe_load(file)
                 # Else transform it into a benedict dictionary object
-                setattr(ctx, kind, benedict(loaded_input, keypath_separator=DICT_BENEDICT_SEPARATOR))
+                setattr(ctx, kind, benedict(loaded_input,
+                        keypath_separator=DICT_BENEDICT_SEPARATOR))
 
     if attach_to_allure:
         allure.attach.file(

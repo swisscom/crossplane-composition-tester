@@ -19,7 +19,7 @@ metadata:
   annotations:
     render.crossplane.io/runtime-docker-cleanup: Stop
 spec:
-  package: xpkg.upbound.io/crossplane-contrib/function-go-templating:v0.5.0
+  package: xpkg.upbound.io/crossplane-contrib/function-go-templating:v0.7.0
 ---
 apiVersion: pkg.crossplane.io/v1beta1
 kind: Function

@@ -24,14 +24,15 @@ from benedict import benedict
 from hamcrest import assert_that, none, is_not
 
 from steps.utils.constants import (
-        DICT_BENEDICT_SEPARATOR,
-        TMP_OBSERVED_FILE_PATH,
-        OBSERVED,
-        CTX_DESIRED_RESOURCES,
-        CTX_DESIRED_COMPOSITE)
+    DICT_BENEDICT_SEPARATOR,
+    TMP_OBSERVED_FILE_PATH,
+    OBSERVED,
+    CTX_DESIRED_RESOURCES,
+    CTX_DESIRED_COMPOSITE)
 
 logger = logging.getLogger("xplane-composition-tester logger")
 logger.setLevel(logging.INFO)
+
 
 def create_fake_status_conditions(ready=False, synced=True):
     """Create fake status conditions
@@ -84,21 +85,21 @@ def prepare_render_args(ctx: Context, log_input: bool = False):
 
     uid = get_uid(ctx)
     # logger.info(f"uid is {uid}")
-    
+
     envconfig_arg = f"--context-files=apiextensions.crossplane.io/environment={ctx.envconfig_filepath}"
 
     # Check if we need to run render without an observed state
     if not observed_file and not observed_resources:
         return ["crossplane", "beta", "render", ctx.claim_filepath,
                 ctx.composition_filepath, ctx.functions_filepath, envconfig_arg]
-        
+
     if observed_file:
         # use the observed file for one render round
         delattr(ctx, f"{OBSERVED}_filepath")
-        
+
     else:
         # prepare observed file from the desired resources
-        
+
         if os.path.exists(TMP_OBSERVED_FILE_PATH):
             # Cleanup current temp file
             os.remove(TMP_OBSERVED_FILE_PATH)
@@ -118,14 +119,16 @@ def prepare_render_args(ctx: Context, log_input: bool = False):
             deep_update(observed_resources, ctx.updates)
 
             if log_input:
-                dump_yaml_to_file(f"dump/observed-updated{uid}.yaml", observed_resources)
+                dump_yaml_to_file(
+                    f"dump/observed-updated{uid}.yaml", observed_resources)
 
         # Then dump the observed onto a temp file
         # logger.info(f"running with observed resources {observed_resources}")
-        dump_yaml_to_file(TMP_OBSERVED_FILE_PATH, observed_resources.values(), dump_multiple_resources=True)
+        dump_yaml_to_file(TMP_OBSERVED_FILE_PATH,
+                          observed_resources.values(), dump_multiple_resources=True)
         observed_file = TMP_OBSERVED_FILE_PATH
-    
-    # run the renderer with the observed file as input        
+
+    # run the renderer with the observed file as input
     return ["crossplane", "beta", "render", ctx.claim_filepath,
             ctx.composition_filepath, ctx.functions_filepath, envconfig_arg, "-o", observed_file]
 
@@ -168,7 +171,8 @@ def get_resource_from_context(ctx: Context, resource_name: str, assert_exists: b
         AssertionError: resource does not exist in context
     """
     # Get the resource from context
-    desired_resources = get_from_context(ctx, CTX_DESIRED_RESOURCES, assert_exists=True)
+    desired_resources = get_from_context(
+        ctx, CTX_DESIRED_RESOURCES, assert_exists=True)
     desired_resource = desired_resources.get(resource_name)
     if assert_exists:
         assert_that(desired_resource, is_not(none()),
@@ -208,15 +212,18 @@ def read_desired_output_into_context(ctx: Context, render_output: str):
     desired_state = []
     try:
         # Parse only strings, dicts & lists. Ignore auxiliary types like booleans, integers, floats, etc.
-        desired_state = list(yaml.load_all(render_output, Loader=yaml.BaseLoader))
+        desired_state = list(yaml.load_all(
+            render_output, Loader=yaml.BaseLoader))
     except yaml.YAMLError as e:
         assert_that(False, f"error parsing render output: {e}")
 
-    assert_that(len(desired_state), is_not(0), f"render: no desired state output")
+    assert_that(len(desired_state), is_not(
+        0), f"render: no desired state output")
 
     # The first resource from the crossplane render output is always the xr
     desired_xr = desired_state[0]
-    setattr(ctx, CTX_DESIRED_COMPOSITE, benedict(desired_xr, keypath_separator=DICT_BENEDICT_SEPARATOR))
+    setattr(ctx, CTX_DESIRED_COMPOSITE, benedict(
+        desired_xr, keypath_separator=DICT_BENEDICT_SEPARATOR))
 
     desired_resources = desired_state[1:]
     # Create dict from resource names to their payload
@@ -308,4 +315,3 @@ def get_uid(ctx: Context):
     else:
         ctx.uid = uid + 1
     return uid
-
