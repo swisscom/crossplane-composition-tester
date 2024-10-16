@@ -44,7 +44,6 @@ def create_fake_status_conditions(ready=False, synced=True):
     Returns:
         list -- list of status conditions
     """
-    # TODO: Pay attention as to how different status affect the renderer
     ready_condition = {
         "lastTransitionTime": "2023-11-24T15:29:59Z",
         "reason": "Available" if ready else "Unavailable",
