@@ -57,7 +57,10 @@ def setup_envconfig_filepath(ctx: Context):
     """
     all_features_directory = Path(ctx.base_path).parent
     envconfig_filepath = all_features_directory / "envconfig.json"
-    ctx.envconfig_filepath = envconfig_filepath
+    
+    # Check if file exists
+    if envconfig_filepath.exists():
+        ctx.envconfig_filepath = envconfig_filepath
 
 
 @fixture

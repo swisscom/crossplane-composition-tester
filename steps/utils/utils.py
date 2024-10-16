@@ -27,6 +27,7 @@ from steps.utils.constants import (
     DICT_BENEDICT_SEPARATOR,
     TMP_OBSERVED_FILE_PATH,
     OBSERVED,
+    ENVCONFIG,
     CTX_DESIRED_RESOURCES,
     CTX_DESIRED_COMPOSITE)
 
@@ -84,12 +85,16 @@ def prepare_render_args(ctx: Context, log_input: bool = False):
 
     uid = get_uid(ctx)
     # logger.info(f"uid is {uid}")
-
-    envconfig_arg = f"--context-files=apiextensions.crossplane.io/environment={ctx.envconfig_filepath}"
+    
+    envconfig_filepath = getattr(ctx, f"{ENVCONFIG}_filepath", None)
+    if envconfig_filepath:
+        envconfig_arg = f"--context-files=apiextensions.crossplane.io/environment={envconfig_filepath}"
+    else:
+        envconfig_arg = "--context-files="
 
     # Check if we need to run render without an observed state
     if not observed_file and not observed_resources:
-        return ["crossplane", "beta", "render", ctx.claim_filepath,
+        return ["crossplane", "render", ctx.claim_filepath,
                 ctx.composition_filepath, ctx.functions_filepath, envconfig_arg]
 
     if observed_file:
@@ -128,7 +133,7 @@ def prepare_render_args(ctx: Context, log_input: bool = False):
         observed_file = TMP_OBSERVED_FILE_PATH
 
     # run the renderer with the observed file as input
-    return ["crossplane", "beta", "render", ctx.claim_filepath,
+    return ["crossplane", "render", ctx.claim_filepath,
             ctx.composition_filepath, ctx.functions_filepath, envconfig_arg, "-o", observed_file]
 
 
