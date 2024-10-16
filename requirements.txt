@@ -1,5 +1,5 @@
-allure-behave==2.13.2
-allure-python-commons==2.13.2
+allure-behave==2.13.5
+allure-python-commons==2.13.5
 behave==1.2.6
 python-benedict==0.33.0
 pyhamcrest==2.1.0

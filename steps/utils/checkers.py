@@ -12,15 +12,36 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from hamcrest import assert_that, equal_to, none, is_not, has_item, any_of, empty
+from hamcrest import assert_that, equal_to, none, is_not, has_item, any_of, empty, has_length
 
-from steps.utils.utils import get_resource_entry, parse_value_cmd
+from steps.utils.utils import get_resource_entry
 
 
-def assert_has_resource_entry(resource, key: str, value: str = None):
+def assert_resource_has_key_and_return_value(resource_name, resource, key: str):
+    """Check that a resource has a key and return the value
+
+    Arguments:
+        resource_name {str} -- resource name
+        resource {dict} -- resource
+        key {str} -- key
+
+    Returns:
+        str -- value
+
+    Raises:
+        AssertionError: resource does not have the key
+    """
+    result = get_resource_entry(resource, key)
+    assert_that(result, is_not(None),
+                f"expected resource {resource_name} to have key {key}")
+    return result
+
+
+def assert_has_resource_entry(resource_name, resource, key: str, value: str = None):
     """Check that a resource has an entry
 
     Arguments:
+        resource_name {str} -- resource name
         resource {dict} -- resource
         key {str} -- key
 
@@ -30,13 +51,46 @@ def assert_has_resource_entry(resource, key: str, value: str = None):
     Raises:
         AssertionError: resource does not have the entry
     """
-    result = get_resource_entry(resource, key)
-
+    result = str(assert_resource_has_key_and_return_value(
+        resource_name, resource, key))
     if value:
-        value = parse_value_cmd(value)
-        assert_that(result == value, f"resource does not have {key} with value {value}")
-    else:
-        assert_that(result, is_not(None), f"resource does not have {key}")
+        assert_that(result, equal_to(
+            value), f"expected resource {resource_name} to have {key} with value {value}, but found value {result} instead")
+
+
+def assert_has_not_resource_entry(resource_name, resource, key: str):
+    """Check that a resource does not have an entry
+
+    Arguments:
+        resource_name {str} -- resource name
+        resource {dict} -- resource
+        key {str} -- key
+
+    Raises:
+        AssertionError: resource has the entry
+    """
+    result = get_resource_entry(resource, key)
+    assert_that(result, none(
+    ), f"expected resource {resource_name} to not have key {key}. Found {key}:{result} instead")
+
+
+def assert_resource_array_param_has_length(resource_name, resource, key: str, length: int):
+    """Check that a resource array parameter has the expected length
+
+    Arguments:
+        resource_name {str} -- resource name
+        resource {dict} -- resource
+        key {str} -- key
+        length {int} -- expected length
+
+    Raises:
+        AssertionError: resource array parameter does not have the expected length
+    """
+    result = assert_resource_has_key_and_return_value(
+        resource_name, resource, key)
+
+    assert_that(result, has_length(
+        length), f"expected resource {resource_name} to have {key} with length {length}, but has length {len(result)} instead")
 
 
 def check_resources(desired_resources, resource_count: int, expected_resource_names: list[str] = None):
@@ -53,16 +107,25 @@ def check_resources(desired_resources, resource_count: int, expected_resource_na
         AssertionError: number of resources is not as expected
         AssertionError: names of resources are not as expected
     """
-    assert_that(desired_resources, is_not(none()), f"no desired resources found")
+    assert_that(desired_resources, is_not(none()),
+                f"no desired resources found")
     desired_resources_names = list(desired_resources.keys())
     assert_that(len(desired_resources), equal_to(
         resource_count),
-                f"expected {resource_count} resources, got {len(desired_resources_names)}: {desired_resources_names}")
+        f"expected {resource_count} resources, got {len(desired_resources_names)}: {desired_resources_names}")
 
     if expected_resource_names:
         for r in desired_resources_names:
             assert_that(expected_resource_names, has_item(r),
                         f"{r} not in expected desired resources {expected_resource_names}. Got desired resources {desired_resources_names}")
+
+
+def check_resources_are_empty(resources):
+    assert_that(
+        resources,
+        any_of(none(), empty()),
+        f"expected no resources, got {resources}",
+    )
 
 # @step('composite is {status}')
 # def check_composite_status(ctx: Context, status):

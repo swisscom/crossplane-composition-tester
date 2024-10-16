@@ -65,8 +65,8 @@ Feature: Service Account composition
     Given change observed resource green-demo-sa-rpa-default-policy with status READY
     And change observed resource green-demo-sa with status READY
     When crossplane renders the composition
-
-
+    
+  
   @normal
   Scenario: service account with 1 policyARN
     Given input claim is changed with parameters
