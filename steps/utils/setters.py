@@ -89,9 +89,6 @@ def update_resource_params(ctx: Context, resource_name: str, resource_updates):
     for key, value in resource_updates.items():
         set_resource_param(updates, f"{resource_name}.{key}", value)
 
-    # IMPORTANT: save a flag in the context, to signal the render function to use the newly updated resources as observed resources to the next render iteration
-    ctx.render_with_observed = True
-
 
 def set_resource_param(resource, key: str, value: str):
     """Set a resource parameter

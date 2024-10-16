@@ -17,9 +17,14 @@ BASE_PATH = f"features"
 TMP_OBSERVED_FILE_PATH = "/tmp/observed.yaml"
 TMP_CLAIMS_FILE_PATH = "/tmp/claims"
 
+CTX_DESIRED_RESOURCES = "desired_resources"
+CTX_DESIRED_COMPOSITE = "desired_xr"
+
 CLAIM = "claim"
 COMPOSITION = "composition"
 FUNCTIONS = "functions"
+ENVCONFIG = "envconfig"
+OBSERVED = "observed"
 
 # The separator that benedict will use for keypaths.
 # By default, it should be the dot "." however some keys in the manifests already have dots in their keynames and

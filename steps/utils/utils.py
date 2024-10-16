@@ -14,6 +14,8 @@
 
 import collections.abc
 import os
+import logging
+import re
 from pathlib import Path
 
 import yaml
@@ -21,8 +23,15 @@ from behave.runner import Context
 from benedict import benedict
 from hamcrest import assert_that, none, is_not
 
-from steps.utils.constants import DICT_BENEDICT_SEPARATOR, TMP_OBSERVED_FILE_PATH
+from steps.utils.constants import (
+        DICT_BENEDICT_SEPARATOR,
+        TMP_OBSERVED_FILE_PATH,
+        OBSERVED,
+        CTX_DESIRED_RESOURCES,
+        CTX_DESIRED_COMPOSITE)
 
+logger = logging.getLogger("xplane-composition-tester logger")
+logger.setLevel(logging.INFO)
 
 def create_fake_status_conditions(ready=False, synced=True):
     """Create fake status conditions
@@ -34,6 +43,7 @@ def create_fake_status_conditions(ready=False, synced=True):
     Returns:
         list -- list of status conditions
     """
+    # TODO: Pay attention as to how different status affect the renderer
     ready_condition = {
         "lastTransitionTime": "2023-11-24T15:29:59Z",
         "reason": "Available" if ready else "Unavailable",
@@ -53,9 +63,10 @@ def create_fake_status_conditions(ready=False, synced=True):
 def prepare_render_args(ctx: Context, log_input: bool = False):
     """Prepare crossplane render command arguments.
 
-    We identify 2 cases:
+    We identify 3 cases:
     1. We need to run render with no observed state (e.g when we run the claim for the first time)
-    2. We need to run render with an observed state which is signaled by the render_with_observed flag in the context.
+    2. We need to run render with an observed state which is provided in the context from a dedicated step.
+    3. We need to run render with an observed state which is the desired resources from the context plus the updates from dedicated steps.
 
     Arguments:
         ctx {Context} -- behave context
@@ -66,23 +77,33 @@ def prepare_render_args(ctx: Context, log_input: bool = False):
     Returns:
         list -- crossplane render command arguments
     """
-    # Check if we need to run render with an observed state
-    render_with_observed = getattr(ctx, "render_with_observed", False)
+    observed_file = getattr(ctx, f"{OBSERVED}_filepath", None)
+    observed_resources = getattr(ctx, CTX_DESIRED_RESOURCES, None)
+    # logger.info(f"observed file is {observed_file}")
+    # logger.info(f"observed resources are {observed_resources}")
 
     uid = get_uid(ctx)
     # logger.info(f"uid is {uid}")
+    
+    envconfig_arg = f"--context-files=apiextensions.crossplane.io/environment={ctx.envconfig_filepath}"
 
-    # Check if we need to run render with an observed state
-    if not render_with_observed:
+    # Check if we need to run render without an observed state
+    if not observed_file and not observed_resources:
         return ["crossplane", "beta", "render", ctx.claim_filepath,
-                ctx.composition_filepath, ctx.functions_filepath]
+                ctx.composition_filepath, ctx.functions_filepath, envconfig_arg]
+        
+    if observed_file:
+        # use the observed file for one render round
+        delattr(ctx, f"{OBSERVED}_filepath")
+        
     else:
+        # prepare observed file from the desired resources
+        
         if os.path.exists(TMP_OBSERVED_FILE_PATH):
             # Cleanup current temp file
             os.remove(TMP_OBSERVED_FILE_PATH)
 
         # First get the desired resources that will act as observed resources to the next render round
-        observed_resources = getattr(ctx, "desired_resources", None)
         assert observed_resources is not None, f"No resources found in context"
 
         if log_input:
@@ -102,8 +123,11 @@ def prepare_render_args(ctx: Context, log_input: bool = False):
         # Then dump the observed onto a temp file
         # logger.info(f"running with observed resources {observed_resources}")
         dump_yaml_to_file(TMP_OBSERVED_FILE_PATH, observed_resources.values(), dump_multiple_resources=True)
-        return ["crossplane", "beta", "render", ctx.claim_filepath,
-                ctx.composition_filepath, ctx.functions_filepath, "-o", TMP_OBSERVED_FILE_PATH]
+        observed_file = TMP_OBSERVED_FILE_PATH
+    
+    # run the renderer with the observed file as input        
+    return ["crossplane", "beta", "render", ctx.claim_filepath,
+            ctx.composition_filepath, ctx.functions_filepath, envconfig_arg, "-o", observed_file]
 
 
 def get_from_context(ctx: Context, attr: str, assert_exists: bool = True):
@@ -144,7 +168,7 @@ def get_resource_from_context(ctx: Context, resource_name: str, assert_exists: b
         AssertionError: resource does not exist in context
     """
     # Get the resource from context
-    desired_resources = get_from_context(ctx, "desired_resources", assert_exists=True)
+    desired_resources = get_from_context(ctx, CTX_DESIRED_RESOURCES, assert_exists=True)
     desired_resource = desired_resources.get(resource_name)
     if assert_exists:
         assert_that(desired_resource, is_not(none()),
@@ -162,7 +186,11 @@ def get_resource_entry(resource, key: str, default=None):
     Returns:
         [type] -- entry value
     """
-    keypath = key.replace(".", DICT_BENEDICT_SEPARATOR)
+    # Replace dots with the custom DICT_BENEDICT_SEPARATOR to access nested keys
+    # Except if the dot is escaped to not replace them in keys with dots (e.g. crossplane.io/claim-name)
+    keypath = re.sub(r'(?<!\\)\.', DICT_BENEDICT_SEPARATOR, key)
+    # Remove the escape character from the escaped dots if any
+    keypath = keypath.replace(r'\.', '.')
 
     return resource.get(keypath, default)
 
@@ -179,7 +207,8 @@ def read_desired_output_into_context(ctx: Context, render_output: str):
     """
     desired_state = []
     try:
-        desired_state = list(yaml.safe_load_all(render_output))
+        # Parse only strings, dicts & lists. Ignore auxiliary types like booleans, integers, floats, etc.
+        desired_state = list(yaml.load_all(render_output, Loader=yaml.BaseLoader))
     except yaml.YAMLError as e:
         assert_that(False, f"error parsing render output: {e}")
 
@@ -187,7 +216,7 @@ def read_desired_output_into_context(ctx: Context, render_output: str):
 
     # The first resource from the crossplane render output is always the xr
     desired_xr = desired_state[0]
-    ctx.desired_xr = benedict(desired_xr, keypath_separator=DICT_BENEDICT_SEPARATOR)
+    setattr(ctx, CTX_DESIRED_COMPOSITE, benedict(desired_xr, keypath_separator=DICT_BENEDICT_SEPARATOR))
 
     desired_resources = desired_state[1:]
     # Create dict from resource names to their payload
@@ -196,7 +225,7 @@ def read_desired_output_into_context(ctx: Context, render_output: str):
           benedict(dr, keypath_separator=DICT_BENEDICT_SEPARATOR)) for dr in desired_resources]
     )
 
-    ctx.desired_resources = desired_resources
+    setattr(ctx, CTX_DESIRED_RESOURCES, desired_resources)
 
 
 def parse_value_cmd(value: str):
@@ -214,12 +243,6 @@ def parse_value_cmd(value: str):
         cmd, args = value_split[0], value_split[1]
         if cmd == "\list":
             value = args.split(',')
-        elif cmd == "\int":
-            value = int(args)
-        elif cmd == "\float":
-            value = float(args)
-        elif cmd == "\str":
-            value = str(args)
         else:
             raise NotImplementedError(f"unknown command {cmd}")
 
@@ -286,9 +309,3 @@ def get_uid(ctx: Context):
         ctx.uid = uid + 1
     return uid
 
-
-def reset_context_flags(ctx: Context):
-    ctx.desired_xr = None
-    ctx.desired_resources = None
-    ctx.updates = None
-    ctx.render_with_observed = False

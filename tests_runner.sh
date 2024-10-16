@@ -2,16 +2,30 @@
 
 # Get the formatter cucumber_json.py from https://github.com/Xray-App/tutorial-python-behave
 
-TARGET_TEST_DIR=${1:-.}
+TARGET_PROJECT_DIR=${1:-.}
+TESTS_SUB_DIR=${2:-composition-tests}
+TAGS=${3:-""}
 
-echo "Making sure Crossplane is available $(crossplane --version)"
-echo "Execute the tests from $TARGET_TEST_DIR"
+LINK_TARGET_PROJECT_DIR=".target_project"
+
+echo "Making sure Crossplane is available $(crossplane version --client)"
+echo "Execute the tests from project folder $TARGET_PROJECT_DIR and tests subfolder $TESTS_SUB_DIR"
+
+# check if TAGS is empty
+if [ -z "$TAGS" ]; then
+    echo "Running all tests"
+else
+    echo "Running tests with tags $TAGS"
+    PARAM_TAGS="--tags=$TAGS"
+fi
 
 # check if the target_tests already exists and it is a link (if it is, delete it)
-[ -d .target_tests ] && rm .target_tests
-ln -s $TARGET_TEST_DIR .target_tests
+[ -L $LINK_TARGET_PROJECT_DIR ] && rm $LINK_TARGET_PROJECT_DIR
+ln -sv $TARGET_PROJECT_DIR $LINK_TARGET_PROJECT_DIR
 
-PYTHONPATH=. behave -f allure_behave.formatter:AllureFormatter -o allure_reports \
+PYTHONPATH=. behave --junit \
+    -f allure_behave.formatter:AllureFormatter -o allure_reports \
     -f cucumber_json:PrettyCucumberJSONFormatter -o cucumber_reports/cucumber_report.json \
     -f pretty \
-    .target_tests/
+    $PARAM_TAGS \
+    $LINK_TARGET_PROJECT_DIR/$TESTS_SUB_DIR
