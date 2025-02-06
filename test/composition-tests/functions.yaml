@@ -11,24 +11,21 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 apiVersion: pkg.crossplane.io/v1beta1
 kind: Function
 metadata:
   name: function-go-templating
   annotations:
-  #   # render will try to talk to your Function at localhost:9443
-  #   render.crossplane.io/runtime: Development
     render.crossplane.io/runtime-docker-cleanup: Stop
 spec:
-  package: xpkg.upbound.io/crossplane-contrib/function-go-templating:v0.4.1
+  package: xpkg.upbound.io/crossplane-contrib/function-go-templating:v0.7.0
 ---
 apiVersion: pkg.crossplane.io/v1beta1
 kind: Function
 metadata:
   name: function-auto-ready
   annotations:
-  #   # render will try to talk to your Function at localhost:9443
-  #   render.crossplane.io/runtime: Development
     render.crossplane.io/runtime-docker-cleanup: Stop
 spec:
-  package: xpkg.upbound.io/crossplane-contrib/function-auto-ready:v0.2.1
+  package: xpkg.upbound.io/crossplane-contrib/function-auto-ready:v0.3.0

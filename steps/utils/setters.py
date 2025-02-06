@@ -43,7 +43,8 @@ def prepare_file(ctx: Context, kind: str, filepath: str, load_into_context: bool
         AssertionError: file does not exist
     """
     filepath = Path(filepath)
-    assert_that(os.path.exists(filepath), f"{kind} file ({filepath}) does not exist")
+    assert_that(os.path.exists(filepath),
+                f"{kind} file ({filepath}) does not exist")
 
     # load the filepath to the resource to the context
     setattr(ctx, f"{kind}_filepath", filepath)
@@ -57,7 +58,8 @@ def prepare_file(ctx: Context, kind: str, filepath: str, load_into_context: bool
             else:
                 loaded_input = yaml.safe_load(file)
                 # Else transform it into a benedict dictionary object
-                setattr(ctx, kind, benedict(loaded_input, keypath_separator=DICT_BENEDICT_SEPARATOR))
+                setattr(ctx, kind, benedict(loaded_input,
+                        keypath_separator=DICT_BENEDICT_SEPARATOR))
 
     if attach_to_allure:
         allure.attach.file(
@@ -88,9 +90,6 @@ def update_resource_params(ctx: Context, resource_name: str, resource_updates):
 
     for key, value in resource_updates.items():
         set_resource_param(updates, f"{resource_name}.{key}", value)
-
-    # IMPORTANT: save a flag in the context, to signal the render function to use the newly updated resources as observed resources to the next render iteration
-    ctx.render_with_observed = True
 
 
 def set_resource_param(resource, key: str, value: str):

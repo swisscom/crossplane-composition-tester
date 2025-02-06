@@ -28,6 +28,7 @@ In order to get started, we set up an [example composition for a service account
 The composition will create the following resources:
 - a `Role`
 - a default `Policy`
+- Any custom policies or predefined policies ARNs provided in the claim
 - a `RolePolicyAttachment` for each policy **once the role and the policies are ready** 
 - a `ServiceAccount` object **once the role is ready**
 
@@ -71,7 +72,7 @@ This tool aims to solve this problem by allowing you to test your compositions l
 in a way that is easy to read and reason about. This tool relies on two main components:
 - [behave](https://behave.readthedocs.io/en/stable/) - A python implementation of Cucumber, that allows you to define your tests in plain english
 in a BDD (Given, When, Then) format. 
-- Crossplane CLI with the [*render* functionality](https://docs.crossplane.io/latest/cli/command-reference/#beta-render).
+- Crossplane [composition functions](https://docs.crossplane.io/latest/concepts/composition-functions/).
 
 The Crossplane v1.14 release introduced a new major feature, [composition functions](https://docs.crossplane.io/latest/concepts/composition-functions/).
 Composition functions allow you to define your composition programmatically using a language of your choice (python, go, etc). 
@@ -96,9 +97,9 @@ For example in Jenkins, you can install the [Allure plugin](https://plugins.jenk
 then run the `tests_runner.sh` script which will run the tests with `behave` and generate allure-reports that can 
 then be viewed in Jenkins as seen in the [Quickstart](##quick-start).
 
-## Steps Reference
+## Features Reference
 
-This is an overview of all the step types that are currently supported. They reflect the AAA (Arrange-Act-Assert) pattern to structure tests. 
+This is an overview of all the features that are currently supported. More can be added later.
 
 ### Given (Arrange)
 
@@ -106,7 +107,7 @@ This is an overview of all the step types that are currently supported. They ref
 |-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `Given input claim <CLAIM>`                                                                                                                                                                                                                               | Provide the name of the claim file to be used in the test. By default, the claim file should be named `claim.yaml`. Claims should be stored inside the `resources` subfolder inside each feature folder.                                                                                        |
 | `Given input composition <COMPOSITION>`                                                                                                                                                                                                                   | Provide the name of the composition file. By default, the composition should be named `composition.yaml`. Compositions should be stored inside the `pkg/<RESOURCE>` directory of the project. This step is OPTIONAL.                                                                            |
-| `Given input functions <FUNCTIONS>`                                                                                                                                                                                                                       | Provide the name of the functions file. By default, the functions file should be named `functions.yaml`. Functions should be stored inside at the root of the test directory containing the feature files of the project (e.g. `test/composition-tests/functions.yaml`). This step is OPTIONAL. |
+| `Given input functions <FUNCTIONS>`                                                                                                                                                                                                                       | Provide the name of the functions file to be used with the tests. Function files should be stored at the root of the test directory containing the feature files directories of the project (e.g. `test/composition-tests/functions.yaml`). By default, the tests will use the `functions.yaml` file to run the tests. **The functions file should contain all the functions needed to run the tests**. However, one can keep multiple versions of the functions file, and in that case use this step to specify which version to use for the tests. This step is OPTIONAL. |
 | <pre><code>Given input claim is changed with parameters </code><br><code>\| param name \| param value \| </code><br><code>\| param-1 \| value-1 \|</code><br><code>\| param-2 \| value-2 \| </code></pre>                                                 | Updates the claim with the parameters provided in the data table.                                                                                                                                                                                                                               |
 | `Given change all observed resources with status <READY_STATUS>`                                                                                                                                                                                          | Sets the ready status of all resources in the current observed state                                                                                                                                                                                                                            |
 | <pre><code>Given change following observed resources with status <READY_STATUS></code><br><code>\| resource-name \|</code><br><code>\| resource-1 \|</code><br><code>\| resource-2 \|</code></pre>                                                        | Sets the ready status of the given resources in the current observed state                                                                                                                                                                                                                      |

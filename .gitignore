@@ -160,8 +160,10 @@ cython_debug/
 #.idea/
 /.idea/
 
-.target_tests
 allure_reports/
 cucumber_reports/
+reports/
 allure-report/
 allure_results/
+
+.target_project
