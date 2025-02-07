@@ -20,15 +20,19 @@ spec:
   compositeTypeRef:
     apiVersion: srvaccount.example.com/v1alpha1
     kind: XSrvAccount
-
-  environment:
-    environmentConfigs:
-      - type: Reference
-        ref:
-          name: iaws-main
-
   mode: Pipeline
   pipeline:
+  - step: environmentConfigs
+    functionRef:
+      name: function-environment-configs
+    input:
+      apiVersion: environmentconfigs.fn.crossplane.io/v1beta1
+      kind: Input
+      spec:
+        environmentConfigs:
+        - type: Reference
+          ref:
+            name: envconfig
   - functionRef:
       name: function-go-templating
     step: role-and-policies

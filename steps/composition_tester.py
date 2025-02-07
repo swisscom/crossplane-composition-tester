@@ -93,6 +93,22 @@ def prepare_claim(ctx: Context, claim_file):
         attach_to_allure=True,
     )
 
+@given("input composition directory {composition_directory} and file {composition_file}")
+def prepare_composition(ctx: Context, composition_directory, composition_file):
+    """Retrieve the composition file for the test from the specified directory under 'pkg' and check if it exists.
+
+    Arguments:
+        ctx {Context} -- behave context
+        composition_directory {str} -- composition directory
+        composition_file {str} -- composition filename
+    """
+    prepare_file(
+        ctx,
+        COMPOSITION,
+        f"{ctx.project_root}/pkg/{composition_directory}/{composition_file}",
+        load_into_context=False,
+        attach_to_allure=False,
+    )
 
 @given("input composition {composition_file}")
 def prepare_composition(ctx: Context, composition_file):
@@ -115,6 +131,7 @@ def prepare_composition(ctx: Context, composition_file):
 
 
 @given("input environment config {envconfig_file}")
+@given("input environment config {envconfig_file} file")
 def prepare_environment_config(ctx: Context, envconfig_file):
     """Retrieve the environment config file for the test and check if it exists. By default, the envconfig file should be at the
     same level as the parent directory containing all features to test.
@@ -188,7 +205,8 @@ def render(ctx: Context):
 
 
     # logger.info("rendering composition")
-    args = prepare_render_args(ctx, log_input=False)
+        
+    args = prepare_render_args(ctx, log_input=ctx.debug_mode)
 
     out = subprocess.run(args, capture_output=True, text=True)
     assert out.returncode == 0, f"error rendering: {out.stderr}"
@@ -200,6 +218,9 @@ def render(ctx: Context):
         name="render output",
     )
 
+    if ctx.debug_mode:
+        save_rendered_output(ctx, out.stdout)
+    
     read_desired_output_into_context(ctx, out.stdout)
 
 

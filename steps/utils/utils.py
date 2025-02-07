@@ -78,25 +78,24 @@ def prepare_render_args(ctx: Context, log_input: bool = False):
     Returns:
         list -- crossplane render command arguments
     """
+    iteration_id = get_iteration_id(ctx)
+    # logger.info(f"uid is {uid}")
+    
+    if log_input:
+        dump_yaml_to_file(f"dump/{iteration_id}-in-xr.yaml", ctx.claim)
+        
     observed_file = getattr(ctx, f"{OBSERVED}_filepath", None)
     observed_resources = getattr(ctx, CTX_DESIRED_RESOURCES, None)
     # logger.info(f"observed file is {observed_file}")
     # logger.info(f"observed resources are {observed_resources}")
-
-    uid = get_uid(ctx)
-    # logger.info(f"uid is {uid}")
     
-    envconfig_filepath = getattr(ctx, f"{ENVCONFIG}_filepath", None)
-    if envconfig_filepath:
-        envconfig_arg = f"--context-files=apiextensions.crossplane.io/environment={envconfig_filepath}"
-    else:
-        envconfig_arg = "--context-files="
+    envconfig_arg = ctx.envconfig_filepath
 
     # Check if we need to run render without an observed state
     if not observed_file and not observed_resources:
         return ["crossplane", "render", ctx.claim_filepath,
-                ctx.composition_filepath, ctx.functions_filepath, envconfig_arg]
-
+                ctx.composition_filepath, ctx.functions_filepath, "-e", envconfig_arg]
+        
     if observed_file:
         # use the observed file for one render round
         delattr(ctx, f"{OBSERVED}_filepath")
@@ -112,19 +111,20 @@ def prepare_render_args(ctx: Context, log_input: bool = False):
         assert observed_resources is not None, f"No resources found in context"
 
         if log_input:
-            dump_yaml_to_file(f"dump/observed{uid}.yaml", observed_resources)
+            dump_yaml_to_file(f"dump/{iteration_id}-in-observed-from-previous-desired.yaml", observed_resources)
 
         # Merge the observed with the updates accumulated so far
         updates = getattr(ctx, "updates", None)
         if updates:
             if log_input:
-                dump_yaml_to_file(f"dump/updates{uid}.yaml", updates)
+                dump_yaml_to_file(f"dump/{iteration_id}-in-changes-from-steps.yaml", updates)
 
-            deep_update(observed_resources, ctx.updates)
+            for resource in ctx.updates:
+                if resource in observed_resources:
+                    deep_update(observed_resources[resource], ctx.updates[resource])
 
             if log_input:
-                dump_yaml_to_file(
-                    f"dump/observed-updated{uid}.yaml", observed_resources)
+                dump_yaml_to_file(f"dump/{iteration_id}-in-observed.yaml", observed_resources)
 
         # Then dump the observed onto a temp file
         # logger.info(f"running with observed resources {observed_resources}")
@@ -134,7 +134,7 @@ def prepare_render_args(ctx: Context, log_input: bool = False):
 
     # run the renderer with the observed file as input
     return ["crossplane", "render", ctx.claim_filepath,
-            ctx.composition_filepath, ctx.functions_filepath, envconfig_arg, "-o", observed_file]
+            ctx.composition_filepath, ctx.functions_filepath, "-e", envconfig_arg, "-o", observed_file]
 
 
 def get_from_context(ctx: Context, attr: str, assert_exists: bool = True):
@@ -202,7 +202,17 @@ def get_resource_entry(resource, key: str, default=None):
 
     return resource.get(keypath, default)
 
+def save_rendered_output(ctx: Context, render_output: str):
+    """Save the render output into a file
 
+    Arguments:
+        ctx {Context} -- behave context
+        render_ouput {str} -- render output
+    """
+    iteration_id = get_iteration_id(ctx, new_iteration=False)
+    dump_string_to_file(f"dump/{iteration_id}-out-desired.yaml", render_output)    
+    
+    
 def read_desired_output_into_context(ctx: Context, render_output: str):
     """Read the desired state from the render output and save it into context
 
@@ -302,20 +312,40 @@ def dump_yaml_to_file(filepath, content: str, dump_multiple_resources: bool = Fa
     except yaml.YAMLError as e:
         assert_that(False, f"error dumping to file: {e}")
 
+def dump_string_to_file(filepath, content: str):
+    """
+    Dump content to file. Creates file if not exists.
 
-def get_uid(ctx: Context):
-    """Get a unique id from the context.
+    Arguments:
+        filepath {str} -- path to file
+        content {dict} -- content to dump
+
+    Raises:
+        AssertionError: error dumping to file
+    """
+    filepath = Path(filepath)
+    filepath.parent.mkdir(exist_ok=True, parents=True)
+    
+    try:
+        with open(filepath, mode="w+", encoding="utf-8") as file:
+            file.write(content)
+    except Exception as e:
+        assert_that(False, f"error dumping to file: {e}")
+
+def get_iteration_id(ctx: Context, new_iteration: bool = True):
+    """Get an iteration id from context.
 
     Arguments:
         ctx {Context} -- behave context
 
     Returns:
-        int -- unique id
+        int -- iteration id
     """
-    uid = getattr(ctx, "uid", None)
-    if uid is None:
-        uid = 0
-        ctx.uid = uid
-    else:
-        ctx.uid = uid + 1
-    return uid
+    iteration_id = getattr(ctx, "iteration_id", None)
+    if iteration_id is None:
+        iteration_id = 1
+        ctx.iteration_id = iteration_id
+    elif new_iteration:
+        ctx.iteration_id = iteration_id + 1
+    return ctx.iteration_id
+
