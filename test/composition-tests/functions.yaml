@@ -29,3 +29,12 @@ metadata:
     render.crossplane.io/runtime-docker-cleanup: Stop
 spec:
   package: xpkg.upbound.io/crossplane-contrib/function-auto-ready:v0.3.0
+---
+apiVersion: pkg.crossplane.io/v1beta1
+kind: Function
+metadata:
+  name: function-environment-configs
+  annotations:
+    render.crossplane.io/runtime-docker-cleanup: Stop
+spec:
+  package: xpkg.upbound.io/crossplane-contrib/function-environment-configs:v0.1.0

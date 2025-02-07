@@ -115,6 +115,8 @@ def check_resources(desired_resources, resource_count: int, expected_resource_na
         f"expected {resource_count} resources, got {len(desired_resources_names)}: {desired_resources_names}")
 
     if expected_resource_names:
+        assert_that(len(expected_resource_names), equal_to(resource_count), 
+                f"expected number of resources ({resource_count}) does not match the number of resources names provided in table ({len(expected_resource_names)})")
         for r in desired_resources_names:
             assert_that(expected_resource_names, has_item(r),
                         f"{r} not in expected desired resources {expected_resource_names}. Got desired resources {desired_resources_names}")

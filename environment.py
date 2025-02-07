@@ -56,7 +56,7 @@ def setup_envconfig_filepath(ctx: Context):
         ctx {Context} -- behave context
     """
     all_features_directory = Path(ctx.base_path).parent
-    envconfig_filepath = all_features_directory / "envconfig.json"
+    envconfig_filepath = all_features_directory / "envconfig.yaml"
     
     # Check if file exists
     if envconfig_filepath.exists():
@@ -129,18 +129,27 @@ def setup_composition_filepath(ctx: Context):
     # For example, "feature-1"
     feature_directory_name = ctx.base_path.name
     project_root = Path(ctx.base_path).parent.parent
+    ctx.project_root = project_root
     # For example "/pkg/feature-1"
     compositions_directory = project_root / "pkg" / feature_directory_name
     ctx.compositions_directory = compositions_directory
     # For example "/pkg/feature-1/composition.yaml"
     ctx.composition_filepath = compositions_directory / "composition.yaml"
 
-
+@fixture
+def setup_from_environment(ctx: Context):
+    """Get the environment variables and set them in the context
+    """
+    
+    ctx.debug_mode = os.environ.get("COMPOSITION_TESTER_DEBUG_MODE", "False").lower() == "true"
+    
+    
 def before_feature(context, feature):
     use_fixture(setup_base_path, context, feature)
     use_fixture(setup_envconfig_filepath, context)
     use_fixture(setup_functions_filepath, context)
     use_fixture(setup_composition_filepath, context)
+    use_fixture(setup_from_environment, context)
 
 
 def on_ci():

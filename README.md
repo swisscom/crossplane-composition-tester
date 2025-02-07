@@ -22,7 +22,7 @@ curl -sL "https://raw.githubusercontent.com/crossplane/crossplane/master/install
 You also need to have **Docker running** since the tests are run inside a docker container.
 
 
-## Quick start 
+## Quick start
 In order to get started, we set up an [example composition for a service account](test/pkg/service-account-with-functions/composition.yaml) inside the `test` folder.
 
 The composition will create the following resources:
@@ -49,9 +49,11 @@ of the scenario or the feature (like "minor" or "critical") are specific to test
 
 **Note**: IDEs like Pycharm have a built-in support for behave and other BDD frameworks will allow you to run the tests directly from the IDE.
 
+## Tests runner
+
 You can also use our custom `tests_runner.sh` script, that runs the tests against a target folder with feature files and generates cucumber and allure reports that you can view in your CI tool.
 ```bash
-./tests_runner.sh test/composition-tests
+./tests_runner.sh test
 ```
 Here is an example output with the Jenkins allure plugin
 
@@ -106,7 +108,8 @@ This is an overview of all the features that are currently supported. More can b
 | Step                                                                                                                                                                                                                                                      | Description                                                                                                                                                                                                                                                                                     |
 |-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `Given input claim <CLAIM>`                                                                                                                                                                                                                               | Provide the name of the claim file to be used in the test. By default, the claim file should be named `claim.yaml`. Claims should be stored inside the `resources` subfolder inside each feature folder.                                                                                        |
-| `Given input composition <COMPOSITION>`                                                                                                                                                                                                                   | Provide the name of the composition file. By default, the composition should be named `composition.yaml`. Compositions should be stored inside the `pkg/<RESOURCE>` directory of the project. This step is OPTIONAL.                                                                            |
+| `Given input composition <COMPOSITION FILE>`                                                                                                                                                                                                                   | Provide the name of the composition file. By default, the composition should be named `composition.yaml`. Compositions should be stored inside the `pkg/<RESOURCE>` directory of the project. This step is OPTIONAL.                                                                            |
+| `Given input composition directory <COMPOSITION DIRECTORY> and file <COMPOSITION FILE>`                                                                                                                                                                                                                   | Provide the name of the composition directory and file. The composition file is looked up in `pkg/<COMPOSITION DIRECTORY>/<COMPOSITION_FILE>`. This step is OPTIONAL.                                                                        |
 | `Given input functions <FUNCTIONS>`                                                                                                                                                                                                                       | Provide the name of the functions file to be used with the tests. Function files should be stored at the root of the test directory containing the feature files directories of the project (e.g. `test/composition-tests/functions.yaml`). By default, the tests will use the `functions.yaml` file to run the tests. **The functions file should contain all the functions needed to run the tests**. However, one can keep multiple versions of the functions file, and in that case use this step to specify which version to use for the tests. This step is OPTIONAL. |
 | <pre><code>Given input claim is changed with parameters </code><br><code>\| param name \| param value \| </code><br><code>\| param-1 \| value-1 \|</code><br><code>\| param-2 \| value-2 \| </code></pre>                                                 | Updates the claim with the parameters provided in the data table.                                                                                                                                                                                                                               |
 | `Given change all observed resources with status <READY_STATUS>`                                                                                                                                                                                          | Sets the ready status of all resources in the current observed state                                                                                                                                                                                                                            |

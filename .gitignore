@@ -167,3 +167,4 @@ allure-report/
 allure_results/
 
 .target_project
+dump/
