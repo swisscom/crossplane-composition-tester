@@ -1,0 +1,55 @@
+# Copyright 2023 Swisscom (Schweiz) AG
+
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+
+#     http://www.apache.org/licenses/LICENSE-2.0
+
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: xpolicyscheduler.aws.example.com
+spec:
+  compositeTypeRef:
+    apiVersion: policyscheduler.example.com/v1alpha1
+    kind: XPolicyScheduler
+  mode: Pipeline
+  pipeline:
+  - step: environmentConfigs
+    functionRef:
+      name: function-environment-configs
+    input:
+      apiVersion: environmentconfigs.fn.crossplane.io/v1beta1
+      kind: Input
+      spec:
+        environmentConfigs:
+        - type: Reference
+          ref:
+            name: envconfig
+  - functionRef:
+      name: function-go-templating
+    step: sample-step-1
+    input:
+      apiVersion: gotemplating.fn.crossplane.io/v1beta1
+      kind: GoTemplate
+      source: Inline
+      inline:
+        template: |-
+          {{/* TODO: implement the composition with one or more steps. The function can be any function from https://github.com/crossplane-contrib?q=function or custom one. Explain your choice. */}}
+          {{/* TODO: the composition must: */}}
+          {{/*  1. handle all schedules from the schedules list */}}
+          {{/*  2. for each schedule: provision the role and assign the policy ONLY during the time interval specified by the scheduleFrom and scheduleUntil */}}
+          {{/* TODO: write composition tests to demonstrate how the composition functions; write as many relevant tests as you consider. Justify the choices made! */}}
+          {{/* HINT 1: Make use of tags to run a sub set of tests. For example: ./tests_runner.sh test -t PolicyScheduler -t normal */}}
+          {{/* HINT 2: Make use of debug flag to get the observed and desired states of each crossplane iteration. Check ./dump folder. For example: ./tests_runner.sh test -d */}}
+
+  - step: automatically-detect-ready-composed-resources
+    functionRef:
+      name: function-auto-ready

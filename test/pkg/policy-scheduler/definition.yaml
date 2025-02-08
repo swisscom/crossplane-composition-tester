@@ -1,0 +1,41 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: CompositeResourceDefinition
+metadata:
+  name: xpolicyscheduler.example.com
+spec:
+  group: policyscheduler.example.com
+  names:
+    kind: XPolicyScheduler
+    plural: xpolicyschedulers
+  enforcedCompositionRef:
+    name: xpolicyscheduler.aws.example.com
+  versions:
+    - name: v1alpha1
+      served: true
+      referenceable: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:
+                schedules:
+                  type: array
+                  description: list of schedules
+                  items:
+                    type: object
+                    description: Description of the schedule of the policy assignment to the role. The role must be provisioned and must have the policy assigned ONLY during the time interval (from->until)
+                    properties:
+                      roleName:
+                        type: string
+                        description: The role to provision and attach the policy to
+                      policyArn:
+                        type: string
+                        description: The policy ARN to attach to the role
+                      scheduleFrom:
+                        type: string
+                        description: TODO adapt the format of the time as it fits better for usability and handling in the composition
+                      scheduleUntil:
+                        type: string
+                        description: TODO adapt the format of the time as it fits better for usability and handling in the composition
