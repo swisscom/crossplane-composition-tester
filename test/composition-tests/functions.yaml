@@ -18,11 +18,11 @@ metadata:
   name: function-go-templating
   annotations:
     render.crossplane.io/runtime: Development
-    render.crossplane.io/runtime-development-target: function-go-templating:9443
+    render.crossplane.io/runtime-development-target: localhost:9443
     render.crossplane.io/runtime-docker-cleanup: Orphan
-
 spec:
-  package: xpkg.upbound.io/crossplane-contrib/function-go-templating:v0.7.0
+  #package: xpkg.upbound.io/crossplane-contrib/function-go-templating:v0.7.0
+  package: xpkg-upbound-docker-remote.artifactory.swisscom.com/crossplane-contrib/function-go-templating:v0.10.0
 ---
 apiVersion: pkg.crossplane.io/v1beta1
 kind: Function
@@ -30,11 +30,11 @@ metadata:
   name: function-auto-ready
   annotations:
     render.crossplane.io/runtime: Development
-    render.crossplane.io/runtime-development-target: function-auto-ready:9443
+    render.crossplane.io/runtime-development-target: localhost:9444
     render.crossplane.io/runtime-docker-cleanup: Orphan
-
 spec:
-  package: xpkg.upbound.io/crossplane-contrib/function-auto-ready:v0.3.0
+  #package: xpkg.upbound.io/crossplane-contrib/function-auto-ready:v0.3.0
+  package: xpkg-upbound-docker-remote.artifactory.swisscom.com/crossplane-contrib/function-auto-ready:v0.5.0
 ---
 apiVersion: pkg.crossplane.io/v1beta1
 kind: Function
@@ -42,8 +42,7 @@ metadata:
   name: function-environment-configs
   annotations:
     render.crossplane.io/runtime: Development
-    render.crossplane.io/runtime-development-target: function-environment-configs:9443
+    render.crossplane.io/runtime-development-target: localhost:9445
     render.crossplane.io/runtime-docker-cleanup: Orphan
-
 spec:
-  package: xpkg.upbound.io/crossplane-contrib/function-environment-configs:v0.1.0
+  package: xpkg-upbound-docker-remote.artifactory.swisscom.com/crossplane-contrib/function-environment-configs:v0.4.0

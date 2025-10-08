@@ -11,13 +11,15 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import subprocess
+import allure
 
 from hamcrest import assert_that, equal_to, none, is_not, has_item, any_of, empty, has_length
 
 from steps.utils.utils import get_resource_entry
 
 
-def assert_resource_has_key_and_return_value(resource_name, resource, key: str):
+def _assert_resource_has_key_and_return_value(resource_name, resource, key: str):
     """Check that a resource has a key and return the value
 
     Arguments:
@@ -50,7 +52,7 @@ def assert_resource_has_entry(resource_name, resource, key: str, expected: str =
     Raises:
         AssertionError: resource does not have the entry
     """
-    value = str(assert_resource_has_key_and_return_value(
+    value = str(_assert_resource_has_key_and_return_value(
         resource_name, resource, key))
     # For now, 'expected' is always read from feature file test as a string
     # and 'value' is always read from the yaml (render outupt) as a string
@@ -90,7 +92,7 @@ def assert_resource_array_param_has_length(resource_name, resource, key: str, le
     Raises:
         AssertionError: resource array parameter does not have the expected length
     """
-    result = assert_resource_has_key_and_return_value(
+    result = _assert_resource_has_key_and_return_value(
         resource_name, resource, key)
 
     assert_that(result, has_length(
@@ -131,6 +133,31 @@ def check_resources_are_empty(resources):
         resources,
         any_of(none(), empty()),
         f"expected no resources, got {resources}",
+    )
+    
+def crossplane_validate_schema(schema, resource, must_be_valid = True):
+    """Validate a resource against a schema
+
+    Arguments:
+        resource {dict} -- resource to validate
+        schema {dict} -- schema to validate against
+
+    Raises:
+        AssertionError: resource does not match the schema
+    """
+    args = ["crossplane", "beta", "validate", "--verbose", schema, resource]
+    try: out=subprocess.check_output(args, universal_newlines=True)
+    except subprocess.CalledProcessError as proc_exc:
+        out=proc_exc.output
+        if must_be_valid:
+            assert False, out
+        else:
+            assert True, out
+
+    # Attach output of render to allure report
+    allure.attach(
+        out,
+        name="validation output",
     )
 
 # @step('composite is {status}')

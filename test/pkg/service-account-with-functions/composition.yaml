@@ -50,6 +50,8 @@ spec:
           {{ $serviceAccountName:=.observed.composite.resource.spec.serviceAccountName }}
           {{ $serviceAccountNamespace:=.observed.composite.resource.spec.serviceAccountNamespace }}
 
+          {{- $xr := getCompositeResource . }}
+          {{- $statusTestWordLength :=  len $xr.status.testWord }}
           ---
           apiVersion: iam.aws.crossplane.io/v1beta1
           kind: Role
@@ -58,6 +60,7 @@ spec:
               gotemplating.fn.crossplane.io/composition-resource-name: role
             name: {{$roleName}}
           spec:
+            statusTestWordLength: {{$statusTestWordLength}}
             forProvider:
               assumeRolePolicyDocument: |
                 {
@@ -254,6 +257,20 @@ spec:
 
           {{ end }}
           {{ end }}
+  
+  - step: set-xr-status
+    functionRef:
+      name: function-go-templating
+    input:
+      apiVersion: gotemplating.fn.crossplane.io/v1beta1
+      kind: GoTemplate
+      source: Inline
+      inline:
+        template: |
+          apiVersion: srvaccount.example.com/v1alpha1
+          kind: SrvAccount
+          status:
+            testWord: bye
 
   - step: automatically-detect-ready-composed-resources
     functionRef:

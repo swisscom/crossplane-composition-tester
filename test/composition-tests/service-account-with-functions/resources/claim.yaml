@@ -27,3 +27,5 @@ spec:
   serviceAccountNamespace: demo
 #  policiesARN:
 #    - policyArn1
+status:
+  testWord: hello

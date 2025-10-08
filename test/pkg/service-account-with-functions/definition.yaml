@@ -43,4 +43,6 @@ spec:
               type: object
               properties:
                 record-iteration:
-                  type: integer                
+                  type: integer       
+                testWord:
+                  type: string         

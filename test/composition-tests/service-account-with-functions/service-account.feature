@@ -17,11 +17,13 @@ Feature: Service Account composition
 
   Background:
     Given input claim claim.yaml
-    # following step is optional: default input composition is composition.yaml 
+    # following step is optional: default input composition is composition.yaml
     And input composition composition.yaml
     # following step is optional: default input functions is functions.yaml
     And input functions functions.yaml
-    Then check that no resources are provisioning
+    And input definition definition.yaml
+    Then check that the claim is valid
+    And check that no resources are provisioning
 
   @critical
   Scenario: service account with default policies
@@ -30,9 +32,16 @@ Feature: Service Account composition
     When crossplane renders the composition
     Then check that 2 resources are provisioning
     And check that resource role has parameters
+      | param name                  |
+      | metadata.labels             |
+      | spec.providerConfigRef.name |
+    And check that resource role has parameters
       | param name    | param value   |
       | metadata.name | green-demo-sa |
     # | spec.forProvider.permissionsBoundary | {regexp}*/sc-policy-cdk-pipeline-permission-boundary |
+    And check that resource role has parameters with key prefix spec
+      | param name           | param value |
+      | statusTestWordLength | 5           |
 
     # render 2
     Given change observed resource role with status NOT READY and parameters
@@ -46,6 +55,9 @@ Feature: Service Account composition
       | resource-name  |
       | role           |
       | default-policy |
+    And check that resource role has parameters with key prefix spec
+      | param name           | param value |
+      | statusTestWordLength | 3           |
 
     # render 3
     Given change observed resource role with status READY
@@ -65,13 +77,14 @@ Feature: Service Account composition
     Given change observed resource green-demo-sa-rpa-default-policy with status READY
     And change observed resource green-demo-sa with status READY
     When crossplane renders the composition
-    
-  
+    Then check that the xr is valid
+
   @normal
   Scenario: service account with 1 policyARN
     Given input claim is changed with parameters
-      | param name       | param value      |
-      | spec.policiesARN | \list policyArn1 |
+      | param name       | param value       |
+      | spec.policiesARN | \\list policyArn1 |
+    Then check that the claim is valid
 
     When crossplane renders the composition
     Then check that 2 resources are provisioning
@@ -90,11 +103,11 @@ Feature: Service Account composition
       | green-demo-sa-rpa-default-policy |
       | green-demo-sa-rpa-0              |
       | green-demo-sa                    |
-    
     And check that resource green-demo-sa-rpa-0 has parameters
       | param name                 | param value   |
       | spec.forProvider.roleName  | green-demo-sa |
       | spec.forProvider.policyArn | policyArn1    |
+    And check that the xr is valid
 
     Given change observed resource green-demo-sa-rpa-default-policy with status READY
     Given change observed resource green-demo-sa-rpa-0 with status READY
@@ -109,8 +122,10 @@ Feature: Service Account composition
 
     # render 1
     Given input claim is changed with parameters
-      | param name       | param value                 |
-      | spec.policiesARN | \list policyArn1,policyArn2 |
+      | param name       | param value                  |
+      | spec.policiesARN | \\list policyArn1,policyArn2 |
+    Then check that the claim is valid
+
     When crossplane renders the composition
     Then check that 2 resources are provisioning
 

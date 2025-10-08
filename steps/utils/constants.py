@@ -12,16 +12,25 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-BASE_PATH = f"features"
+BASE_PATH = "features"
 
 TMP_OBSERVED_FILE_PATH = "/tmp/observed.yaml"
 TMP_CLAIMS_FILE_PATH = "/tmp/claims"
+TMP_XR_FILE_PATH = "/tmp/xr.yaml"
 
+CTX_DESIRED_COMPOSITE_FOR_TEST = "xr_for_test"
 CTX_DESIRED_RESOURCES = "desired_resources"
 CTX_DESIRED_COMPOSITE = "desired_xr"
+CTX_OBSERVED_RESOURCES = "observed_resources"
+CTX_OBSERVED_COMPOSITE = "observed_xr"
+
+RESOURCES_UPDATES = "updates"
+XR_UPDATES = "xr_updates"
 
 CLAIM = "claim"
+XR = "xr"
 COMPOSITION = "composition"
+DEFINITION = "definition"
 FUNCTIONS = "functions"
 ENVCONFIG = "envconfig"
 OBSERVED = "observed"

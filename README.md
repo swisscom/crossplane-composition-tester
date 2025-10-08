@@ -22,7 +22,7 @@ curl -sL "https://raw.githubusercontent.com/crossplane/crossplane/master/install
 You also need to have **Docker running** since the tests are run inside a docker container.
 
 
-## Quick start
+## Quick start 
 In order to get started, we set up an [example composition for a service account](test/pkg/service-account-with-functions/composition.yaml) inside the `test` folder.
 
 The composition will create the following resources:
@@ -49,11 +49,9 @@ of the scenario or the feature (like "minor" or "critical") are specific to test
 
 **Note**: IDEs like Pycharm have a built-in support for behave and other BDD frameworks will allow you to run the tests directly from the IDE.
 
-## Tests runner
-
 You can also use our custom `tests_runner.sh` script, that runs the tests against a target folder with feature files and generates cucumber and allure reports that you can view in your CI tool.
 ```bash
-./tests_runner.sh test
+./tests_runner.sh test/composition-tests
 ```
 Here is an example output with the Jenkins allure plugin
 

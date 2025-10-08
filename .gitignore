@@ -163,8 +163,6 @@ cython_debug/
 allure_reports/
 cucumber_reports/
 reports/
-allure-report/
-allure_results/
 
 .target_project
 dump/
