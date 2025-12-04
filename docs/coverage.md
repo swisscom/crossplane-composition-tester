@@ -2,16 +2,23 @@
 
 ## Overview
 
-The coverage feature helps you understand how thoroughly your test suite exercises your Crossplane compositions. It provides two types of coverage:
+The coverage feature helps you understand how thoroughly your test suite exercises your Crossplane compositions by measuring **parameter coverage** - which parameters from your XRD definitions are actually tested in your test suite.
 
-1. **Parameter Coverage**: Measures which parameters from your XRD definitions are actually used in tests
-2. **Template Function Coverage**: Tracks which Go template functions are used in your compositions
+This helps you:
+- Identify untested configuration options
+- Ensure comprehensive test coverage of composition inputs
+- Track coverage trends over time
+- Set quality gates in CI/CD pipelines
 
 ## Quick Start
 
 Enable coverage reporting by running tests with the coverage flag:
 
 ```bash
+# Using the test runner (recommended)
+./tests_runner.sh test --coverage
+
+# Using behave directly
 behave test -D coverage=true
 ```
 
@@ -22,16 +29,14 @@ export COMPOSITION_TESTER_COVERAGE=true
 behave test
 ```
 
-## Understanding Coverage Reports
-
-### Parameter Coverage
+## Understanding Parameter Coverage
 
 Parameter coverage shows how well your tests exercise the input parameters defined in your Composite Resource Definitions (XRDs).
 
 **What it measures:**
-- Total parameters defined in XRD schema
+- All parameters defined in XRD OpenAPI schema (including nested properties)
 - Parameters actually set in test claims and feature files
-- Coverage percentage
+- Coverage percentage per composition
 
 **Example:**
 
@@ -72,32 +77,19 @@ The coverage report would show:
 - Coverage: 66.7%
 - Uncovered: policiesARN
 
-### Template Function Coverage
+### How Parameters Are Detected
 
-Template function coverage tracks which Go template functions (built-in and Sprig) are used in your composition templates.
+**From Claims:**
+- Parameters set directly in `claim.yaml` files
+- Default values in XRD schemas don't count as "covered"
 
-**What it measures:**
-- Total available template functions (~170 functions)
-- Functions actually used in composition templates
-- Coverage percentage
-- Usage count per function (when available)
+**From Feature Files:**
+- Parameters set using `Given input claim is changed with parameters` steps
+- Parameter tables in Gherkin scenarios
 
-**Example:**
-
-Given this composition template:
-```yaml
-inline:
-  template: |-
-    {{ $accountId := index .context "key" }}
-    {{ $name := upper "test" }}
-    {{ printf "%s-%s" $accountId $name }}
-```
-
-The coverage report would show:
-- Functions Used: 3 (index, upper, printf)
-- Total Functions: 170
-- Coverage: 1.8%
-- Unused Functions: 167 other functions
+**Nested Properties:**
+- Object properties are tracked individually (e.g., `lifecycleRules.enabled`)
+- Array items with object schemas have their properties tracked
 
 ## Coverage Report Formats
 
@@ -115,25 +107,16 @@ CROSSPLANE COMPOSITION COVERAGE REPORT
 
   Composition: service-account-with-functions
     Total Parameters:   3
-    Covered Parameters: 2
-    Coverage:           66.7%
-    ✓ Covered: serviceAccountName, serviceAccountNamespace
-    ✗ Uncovered: policiesARN
+    Covered Parameters: 3
+    Coverage:           100.0%
+    ✓ Covered: policiesARN, serviceAccountName, serviceAccountNamespace
 
---------------------------------------------------------------------------------
-🔧 GO TEMPLATE FUNCTION COVERAGE
---------------------------------------------------------------------------------
-  Total Functions:   170
-  Used Functions:    5
-  Coverage:          2.9%
-
-  Top used functions:
-    index
-    upper
-    printf
-    ...
-
-  Unused functions (165): add, sub, mul, div ... and 161 more
+  Composition: s3-bucket
+    Total Parameters:   8
+    Covered Parameters: 3
+    Coverage:           37.5%
+    ✓ Covered: bucketName, encryption, versioning
+    ✗ Uncovered: lifecycleRules, lifecycleRules.enabled, lifecycleRules.expirationDays, lifecycleRules.id, tags
 
 ================================================================================
 ```
@@ -148,22 +131,19 @@ Machine-readable format saved to `coverage-report.json`:
     "service-account-with-functions": {
       "composition_name": "service-account-with-functions",
       "parameters_total": 3,
-      "parameters_covered": 2,
-      "coverage_percentage": 66.67,
-      "covered_parameters": ["serviceAccountName", "serviceAccountNamespace"],
-      "uncovered_parameters": ["policiesARN"]
-    }
-  },
-  "template_function_coverage": {
-    "functions_total": 170,
-    "functions_used": 5,
-    "coverage_percentage": 2.94,
-    "used_functions": {
-      "index": 0,
-      "upper": 0,
-      "printf": 0
+      "parameters_covered": 3,
+      "coverage_percentage": 100.0,
+      "covered_parameters": ["policiesARN", "serviceAccountName", "serviceAccountNamespace"],
+      "uncovered_parameters": []
     },
-    "unused_functions": ["add", "sub", "mul", ...]
+    "s3-bucket": {
+      "composition_name": "s3-bucket",
+      "parameters_total": 8,
+      "parameters_covered": 3,
+      "coverage_percentage": 37.5,
+      "covered_parameters": ["bucketName", "encryption", "versioning"],
+      "uncovered_parameters": ["lifecycleRules", "lifecycleRules.enabled", "lifecycleRules.expirationDays", "lifecycleRules.id", "tags"]
+    }
   }
 }
 ```
@@ -177,25 +157,57 @@ parameter_coverage_by_composition:
   service-account-with-functions:
     composition_name: service-account-with-functions
     parameters_total: 3
-    parameters_covered: 2
-    coverage_percentage: 66.67
+    parameters_covered: 3
+    coverage_percentage: 100.0
     covered_parameters:
+    - policiesARN
     - serviceAccountName
     - serviceAccountNamespace
+    uncovered_parameters: []
+  s3-bucket:
+    composition_name: s3-bucket
+    parameters_total: 8
+    parameters_covered: 3
+    coverage_percentage: 37.5
+    covered_parameters:
+    - bucketName
+    - encryption
+    - versioning
     uncovered_parameters:
-    - policiesARN
-template_function_coverage:
-  functions_total: 170
-  functions_used: 5
-  coverage_percentage: 2.94
-  used_functions:
-    index: 0
-    upper: 0
-    printf: 0
-  unused_functions:
-  - add
-  - sub
-  - mul
+    - lifecycleRules
+    - lifecycleRules.enabled
+    - lifecycleRules.expirationDays
+    - lifecycleRules.id
+    - tags
+```
+
+### Allure Integration
+
+When coverage is enabled, data is automatically integrated into Allure reports:
+
+**1. Environment Properties** (`allure_reports/environment.properties`)
+```properties
+Coverage.service_account_with_functions=100.0%
+Coverage.service_account_with_functions.covered=3/3
+Coverage.s3_bucket=37.5%
+Coverage.s3_bucket.covered=3/8
+```
+
+This appears in Allure's Environment widget on the overview page.
+
+**2. Test Attachments**
+- `Coverage Report (JSON)` - Full JSON report
+- `Coverage Report (YAML)` - Human-readable YAML
+- `Coverage Summary` - Formatted text summary
+
+**3. Metadata Files**
+- `executor.json` - Build metadata with "Coverage Report" designation
+- `categories.json` - Test categorization
+
+**To view in Allure:**
+```bash
+allure generate allure_reports/ -o allure-report --clean
+allure open allure-report
 ```
 
 ## Improving Coverage
@@ -230,17 +242,13 @@ Scenario: Test with all parameters
     | spec.policiesARN | \list policy-1 |
 ```
 
-### Understanding Template Function Coverage
+### Coverage Best Practices
 
-Template function coverage is typically lower (2-10%) because:
-- There are ~170 available functions
-- Most compositions only use 5-20 functions
-- Many functions are specialized (crypto, networking, etc.)
-
-**What to focus on:**
-- Ensure critical functions used in your templates are being tested
-- Don't aim for 100% function coverage (not realistic or useful)
-- Use coverage to identify which functions your compositions depend on
+1. **Start with critical parameters**: Focus on testing parameters that affect core functionality first
+2. **Test edge cases**: Include scenarios with optional parameters set and unset
+3. **Cover nested objects**: Ensure complex object parameters are fully tested
+4. **Use feature scenarios**: Leverage multiple scenarios to cover different parameter combinations
+5. **Track trends**: Monitor coverage over time to prevent regression
 
 ## CI/CD Integration
 
@@ -252,7 +260,7 @@ Enforce minimum coverage thresholds in your CI pipeline:
 #!/bin/bash
 # run_tests_with_coverage.sh
 
-behave test -D coverage=true
+./tests_runner.sh test --coverage
 
 # Check parameter coverage (fail if < 80%)
 python3 << 'EOF'
@@ -262,13 +270,17 @@ import sys
 with open('coverage-report.json') as f:
     report = json.load(f)
 
+failed = False
 for comp_name, coverage in report['parameter_coverage_by_composition'].items():
     pct = coverage['coverage_percentage']
     print(f"{comp_name}: {pct}% parameter coverage")
     if pct < 80:
-        print(f"ERROR: Coverage below 80% threshold!")
-        sys.exit(1)
+        print(f"ERROR: {comp_name} coverage {pct}% below 80% threshold!")
+        failed = True
 
+if failed:
+    sys.exit(1)
+    
 print("✓ All compositions meet coverage threshold")
 EOF
 ```
@@ -279,16 +291,15 @@ EOF
 test-with-coverage:
   stage: test
   script:
-    - behave test -D coverage=true
-    - python scripts/check_coverage.py coverage-report.json
+    - ./tests_runner.sh test --coverage
+    - python3 scripts/check_coverage.py coverage-report.json
   artifacts:
     reports:
-      coverage_report:
-        coverage_format: cobertura
-        path: coverage-report.json
+      junit: allure_reports/*.json
     paths:
       - coverage-report.json
       - coverage-report.yaml
+      - allure_reports/
 ```
 
 ### Jenkins Pipeline Example
@@ -296,36 +307,97 @@ test-with-coverage:
 ```groovy
 stage('Test with Coverage') {
     steps {
-        sh 'behave test -D coverage=true'
+        sh './tests_runner.sh test --coverage'
+        
+        // Archive coverage reports
         archiveArtifacts artifacts: 'coverage-report.json,coverage-report.yaml'
         
+        // Publish Allure report with coverage
+        allure([
+            includeProperties: false,
+            jdk: '',
+            properties: [],
+            reportBuildPolicy: 'ALWAYS',
+            results: [[path: 'allure_reports']]
+        ])
+        
+        // Check coverage threshold
         script {
             def report = readJSON file: 'coverage-report.json'
-            def coverage = report.parameter_coverage_by_composition.values()[0].coverage_percentage
-            echo "Parameter Coverage: ${coverage}%"
-            
-            if (coverage < 80) {
-                error("Coverage below threshold: ${coverage}%")
+            report.parameter_coverage_by_composition.each { comp, coverage ->
+                def pct = coverage.coverage_percentage
+                echo "${comp}: ${pct}% coverage"
+                
+                if (pct < 80) {
+                    error("Coverage below threshold: ${pct}%")
+                }
             }
         }
     }
 }
 ```
 
+### GitHub Actions Example
+
+```yaml
+name: Test with Coverage
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          curl -sL "https://raw.githubusercontent.com/crossplane/crossplane/master/install.sh" | sh
+      
+      - name: Run tests with coverage
+        run: ./tests_runner.sh test --coverage
+      
+      - name: Upload coverage reports
+        uses: actions/upload-artifact@v3
+        with:
+          name: coverage-reports
+          path: |
+            coverage-report.json
+            coverage-report.yaml
+      
+      - name: Check coverage threshold
+        run: |
+          python3 -c "
+          import json, sys
+          report = json.load(open('coverage-report.json'))
+          failed = any(c['coverage_percentage'] < 80 
+                      for c in report['parameter_coverage_by_composition'].values())
+          sys.exit(1 if failed else 0)
+          "
+```
+
 ## Best Practices
 
-1. **Run coverage regularly**: Include in your CI/CD pipeline to track trends
-2. **Set realistic thresholds**: Aim for 80-90% parameter coverage, 5-10% function coverage
-3. **Focus on critical parameters**: Ensure important configuration options are tested
-4. **Use coverage to find gaps**: Look at uncovered parameters to identify missing test scenarios
-5. **Don't obsess over 100%**: Some parameters may be optional or rarely used
-6. **Track trends**: Monitor coverage over time to ensure it doesn't decrease
+1. **Run coverage regularly**: Include `--coverage` flag in your CI/CD pipeline to track trends
+2. **Set realistic thresholds**: Aim for 80-90% parameter coverage for production compositions
+3. **Focus on critical parameters**: Ensure important configuration options are tested first
+4. **Use coverage to find gaps**: Review uncovered parameters to identify missing test scenarios
+5. **Don't obsess over 100%**: Some parameters may be optional, deprecated, or edge-case only
+6. **Track trends over time**: Monitor coverage percentage to ensure it doesn't decrease with new changes
+7. **Document intentional gaps**: If certain parameters are intentionally untested, document why
+8. **Test parameter combinations**: Don't just set parameters individually - test realistic combinations
 
 ## Troubleshooting
 
 ### Coverage shows 0% for all compositions
 
-**Cause**: No definition.yaml files found or test directory structure issue
+**Cause**: No `definition.yaml` files found or test directory structure issue
 
 **Solution**: Ensure your directory structure follows the convention:
 ```
@@ -338,14 +410,23 @@ test/
 └── pkg/
     └── <composition-name>/
         ├── composition.yaml
-        └── definition.yaml
+        └── definition.yaml    # Must exist!
 ```
+
+### Parameters not detected in claims
+
+**Cause**: Parameter path doesn't match XRD schema
+
+**Solution**: Verify parameter paths match exactly:
+- Check XRD schema structure under `spec.properties`
+- Use correct nesting (e.g., `spec.serviceAccountName` not just `serviceAccountName`)
+- Ensure YAML syntax is valid in claim files
 
 ### Parameters not detected in feature files
 
 **Cause**: Parameter table format not recognized
 
-**Solution**: Ensure your feature file uses correct table format:
+**Solution**: Ensure your feature file uses correct table format with `spec.` prefix:
 ```gherkin
 Given input claim is changed with parameters
   | param name       | param value |
@@ -356,7 +437,38 @@ Given input claim is changed with parameters
 
 **Cause**: Coverage mode not enabled
 
-**Solution**: Use `-D coverage=true` flag or set `COMPOSITION_TESTER_COVERAGE=true`
+**Solution**: 
+- Use `./tests_runner.sh test --coverage` (recommended)
+- Or `behave test -D coverage=true`
+- Or set `export COMPOSITION_TESTER_COVERAGE=true`
+
+### Allure environment properties not showing coverage
+
+**Cause**: Allure report not regenerated after coverage run
+
+**Solution**: 
+```bash
+# Clean and regenerate Allure report
+allure generate allure_reports/ -o allure-report --clean
+allure open allure-report
+```
+
+### Nested parameters show as uncovered
+
+**Cause**: Parent object set but nested properties not explicitly set
+
+**Solution**: Set nested properties explicitly:
+```yaml
+# Instead of this
+spec:
+  config: {}
+
+# Do this
+spec:
+  config:
+    enabled: true
+    timeout: 30
+```
 
 ## API Reference
 
@@ -365,18 +477,44 @@ Given input claim is changed with parameters
 ```python
 from steps.coverage.models import (
     ParameterCoverage,
-    TemplateFunctionCoverage,
     CoverageReport
 )
 
-# Generate report programmatically
-from steps.coverage.reporter import generate_coverage_report
+# ParameterCoverage contains:
+# - composition_name: str
+# - parameters_total: int
+# - parameters_covered: int
+# - covered_parameters: List[str]
+# - uncovered_parameters: List[str]
+# - coverage_percentage: float (property)
 
-report = generate_coverage_report(Path("test"))
-print(report.to_json())
+# CoverageReport contains:
+# - parameter_coverage_by_composition: Dict[str, ParameterCoverage]
 ```
 
 ### Programmatic Usage
+
+```python
+from pathlib import Path
+from steps.coverage.reporter import generate_coverage_report, print_coverage_summary
+
+# Generate full coverage report
+report = generate_coverage_report(Path("test"))
+
+# Print to console
+print_coverage_summary(report)
+
+# Export to JSON/YAML
+json_str = report.to_json(indent=2)
+yaml_str = report.to_yaml()
+
+# Access data
+for comp_name, coverage in report.parameter_coverage_by_composition.items():
+    print(f"{comp_name}: {coverage.coverage_percentage}%")
+    print(f"Uncovered: {coverage.uncovered_parameters}")
+```
+
+### Calculate Coverage for Specific Composition
 
 ```python
 from pathlib import Path
@@ -390,5 +528,47 @@ coverage = calculate_parameter_coverage(
 )
 
 print(f"Coverage: {coverage.coverage_percentage}%")
+print(f"Covered: {coverage.covered_parameters}")
 print(f"Uncovered: {coverage.uncovered_parameters}")
 ```
+
+### Extract Parameters from XRD
+
+```python
+from pathlib import Path
+from steps.coverage.parameter_coverage import extract_parameters_from_definition
+
+# Get all parameters defined in XRD
+parameters = extract_parameters_from_definition(
+    Path("test/pkg/my-composition/definition.yaml")
+)
+
+print(f"Found {len(parameters)} parameters:")
+for param in sorted(parameters):
+    print(f"  - {param}")
+```
+
+## Multi-Composition Coverage
+
+When you have multiple compositions in your project, coverage is calculated separately for each:
+
+```
+test/
+├── composition-tests/
+│   ├── service-account/
+│   └── s3-bucket/
+└── pkg/
+    ├── service-account/
+    └── s3-bucket/
+```
+
+Example output:
+```
+Composition: service-account
+  Coverage: 100.0% (3/3 parameters)
+  
+Composition: s3-bucket
+  Coverage: 37.5% (3/8 parameters)
+```
+
+This allows you to track coverage per product/composition independently.

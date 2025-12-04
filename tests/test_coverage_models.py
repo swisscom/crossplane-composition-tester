@@ -20,7 +20,6 @@ import yaml
 
 from steps.coverage.models import (
     ParameterCoverage,
-    TemplateFunctionCoverage,
     CoverageReport,
 )
 
@@ -68,46 +67,6 @@ class TestParameterCoverage(unittest.TestCase):
         self.assertEqual(result['coverage_percentage'], 50.0)
 
 
-class TestTemplateFunctionCoverage(unittest.TestCase):
-    """Test TemplateFunctionCoverage model."""
-    
-    def test_coverage_percentage(self):
-        """Test coverage percentage calculation."""
-        coverage = TemplateFunctionCoverage(
-            functions_total=100,
-            functions_used=25,
-            used_functions={"func1": 5, "func2": 10},
-            unused_functions=["func3", "func4"]
-        )
-        
-        self.assertEqual(coverage.coverage_percentage, 25.0)
-    
-    def test_coverage_percentage_zero_functions(self):
-        """Test coverage percentage when no functions exist."""
-        coverage = TemplateFunctionCoverage(
-            functions_total=0,
-            functions_used=0
-        )
-        
-        self.assertEqual(coverage.coverage_percentage, 0.0)
-    
-    def test_to_dict(self):
-        """Test conversion to dictionary."""
-        coverage = TemplateFunctionCoverage(
-            functions_total=50,
-            functions_used=10,
-            used_functions={"func1": 3},
-            unused_functions=["func2"]
-        )
-        
-        result = coverage.to_dict()
-        
-        self.assertIn('functions_total', result)
-        self.assertIn('functions_used', result)
-        self.assertIn('coverage_percentage', result)
-        self.assertEqual(result['coverage_percentage'], 20.0)
-
-
 class TestCoverageReport(unittest.TestCase):
     """Test CoverageReport model."""
     
@@ -119,20 +78,13 @@ class TestCoverageReport(unittest.TestCase):
             parameters_covered=3
         )
         
-        func_cov = TemplateFunctionCoverage(
-            functions_total=20,
-            functions_used=10
-        )
-        
         report = CoverageReport(
-            parameter_coverage_by_composition={"test": param_cov},
-            template_function_coverage=func_cov
+            parameter_coverage_by_composition={"test": param_cov}
         )
         
         result = report.to_dict()
         
         self.assertIn('parameter_coverage_by_composition', result)
-        self.assertIn('template_function_coverage', result)
         self.assertIn('test', result['parameter_coverage_by_composition'])
     
     def test_to_json(self):

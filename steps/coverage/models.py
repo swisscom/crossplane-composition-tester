@@ -45,29 +45,6 @@ class ParameterCoverage:
 
 
 @dataclass
-class TemplateFunctionCoverage:
-    """Coverage information for Go template functions."""
-    
-    functions_total: int = 0
-    functions_used: int = 0
-    used_functions: Dict[str, int] = field(default_factory=dict)
-    unused_functions: List[str] = field(default_factory=list)
-    
-    @property
-    def coverage_percentage(self) -> float:
-        """Calculate coverage percentage."""
-        if self.functions_total == 0:
-            return 0.0
-        return (self.functions_used / self.functions_total) * 100.0
-    
-    def to_dict(self) -> dict:
-        """Convert to dictionary with computed fields."""
-        result = asdict(self)
-        result['coverage_percentage'] = round(self.coverage_percentage, 2)
-        return result
-
-
-@dataclass
 class CoverageReport:
     """Complete coverage report for compositions."""
     

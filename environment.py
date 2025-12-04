@@ -200,42 +200,6 @@ def before_all(context: Context):
         print("\n" + "=" * 80)
         print("COVERAGE MODE ENABLED")
         print("=" * 80)
-        
-        # Import coverage modules
-        from steps.coverage.template_coverage import get_global_tracker, extract_all_composition_functions
-        from pathlib import Path
-        
-        # Determine test root directory to scan for compositions
-        test_root = None
-        cwd = Path.cwd()
-        if (cwd / "test").exists():
-            test_root = cwd / "test"
-        elif cwd.name == "test":
-            test_root = cwd
-        
-        if test_root:
-            print(f"Scanning compositions in: {test_root}\n")
-            
-            # Extract all template functions from compositions
-            composition_functions = extract_all_composition_functions(test_root)
-            
-            # Enable template function tracking with composition functions
-            tracker = get_global_tracker()
-            tracker.set_composition_functions(composition_functions)
-            tracker.enable()
-            
-            print(f"✓ Found {len(composition_functions)} template functions in compositions")
-            if composition_functions:
-                funcs_preview = ', '.join(sorted(composition_functions)[:10])
-                if len(composition_functions) > 10:
-                    funcs_preview += f" ... and {len(composition_functions) - 10} more"
-                print(f"  Functions: {funcs_preview}")
-        else:
-            # Still enable tracking, but without pre-scanned functions
-            tracker = get_global_tracker()
-            tracker.enable()
-            print("✓ Template function tracking enabled (no composition pre-scan)")
-        
         print("✓ Parameter coverage will be calculated after tests complete")
         print("=" * 80 + "\n")
 
