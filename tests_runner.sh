@@ -5,6 +5,7 @@
 #
 # ARG_OPTIONAL_REPEATED([tags],[t],[tags to filter the scenarios to run from the feature files; multiple tags can be provided and they are combined with 'AND'])
 # ARG_OPTIONAL_BOOLEAN([debug],[d],[enable debug mode],[off])
+# ARG_OPTIONAL_BOOLEAN([coverage],[c],[enable coverage report],[off])
 # ARG_POSITIONAL_SINGLE([composition-project-dir],[directory of crossplane compositions project that contains a pkg folder],[])
 # ARG_POSITIONAL_SINGLE([tests-dir],[directory where the BDD feature files are placed],[composition-tests])
 # ARG_HELP([Runner of crossplane composition tests])
@@ -27,7 +28,7 @@ die()
 
 begins_with_short_option()
 {
-	local first_option all_short_options='tdh'
+	local first_option all_short_options='tdch'
 	first_option="${1:0:1}"
 	test "$all_short_options" = "${all_short_options/$first_option/}" && return 1 || return 0
 }
@@ -38,16 +39,18 @@ _arg_tests_dir="composition-tests"
 # THE DEFAULTS INITIALIZATION - OPTIONALS
 _arg_tags=()
 _arg_debug="off"
+_arg_coverage="off"
 
 
 print_help()
 {
 	printf '%s\n' "Runner of crossplane composition tests"
-	printf 'Usage: %s [-t|--tags <arg>] [-d|--(no-)debug] [-h|--help] <composition-project-dir> [<tests-dir>]\n' "$0"
+	printf 'Usage: %s [-t|--tags <arg>] [-d|--(no-)debug] [-c|--(no-)coverage] [-h|--help] <composition-project-dir> [<tests-dir>]\n' "$0"
 	printf '\t%s\n' "<composition-project-dir>: directory of crossplane compositions project that contains a pkg folder"
 	printf '\t%s\n' "<tests-dir>: directory where the BDD feature files are placed (default: 'composition-tests')"
 	printf '\t%s\n' "-t, --tags: tags to filter the scenarios to run from the feature files; multiple tags can be provided and they are combined with 'AND' (empty by default)"
 	printf '\t%s\n' "-d, --debug, --no-debug: enable debug mode (off by default)"
+	printf '\t%s\n' "-c, --coverage, --no-coverage: enable coverage report (off by default)"
 	printf '\t%s\n' "-h, --help: Prints help"
 }
 
@@ -80,6 +83,18 @@ parse_commandline()
 				if test -n "$_next" -a "$_next" != "$_key"
 				then
 					{ begins_with_short_option "$_next" && shift && set -- "-d" "-${_next}" "$@"; } || die "The short option '$_key' can't be decomposed to ${_key:0:2} and -${_key:2}, because ${_key:0:2} doesn't accept value and '-${_key:2:1}' doesn't correspond to a short option."
+				fi
+				;;
+			-c|--no-coverage|--coverage)
+				_arg_coverage="on"
+				test "${1:0:5}" = "--no-" && _arg_coverage="off"
+				;;
+			-c*)
+				_arg_coverage="on"
+				_next="${_key##-c}"
+				if test -n "$_next" -a "$_next" != "$_key"
+				then
+					{ begins_with_short_option "$_next" && shift && set -- "-c" "-${_next}" "$@"; } || die "The short option '$_key' can't be decomposed to ${_key:0:2} and -${_key:2}, because ${_key:0:2} doesn't accept value and '-${_key:2:1}' doesn't correspond to a short option."
 				fi
 				;;
 			-h|--help)
@@ -161,6 +176,12 @@ echo "Execute the tests from project folder $TARGET_PROJECT_DIR and tests subfol
 if [ "$_arg_debug" = on ]
 then
     export COMPOSITION_TESTER_DEBUG_MODE="true"
+fi
+
+if [ "$_arg_coverage" = on ]
+then
+    export COMPOSITION_TESTER_COVERAGE="true"
+    echo "Coverage report will be generated"
 fi
 
 if [ -z "$_arg_tags" ]; then

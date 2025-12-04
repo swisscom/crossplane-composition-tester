@@ -40,6 +40,25 @@ You can run the tests with the following command:
 behave test
 ```
 
+To generate coverage reports, add the coverage flag:
+```bash
+# Using behave directly
+behave test -D coverage=true
+
+# Using the test runner script with coverage
+./tests_runner.sh test --coverage
+```
+
+**What does coverage measure?**
+
+1. **Parameter Coverage**: Analyzes which parameters defined in your XRD (CompositeResourceDefinition) schemas are actually tested via test claims and feature files. This helps identify untested configuration options.
+
+2. **Template Function Coverage**: Identifies Go template functions (like `index`, `cat`, `default`, `toJson`, etc.) used in your composition templates. Shows which template logic is present in your compositions.
+
+Coverage reports are saved as `coverage-report.json` and `coverage-report.yaml` in the project root.
+
+**Limitation**: Template function coverage uses static analysis of composition YAML files. It identifies which functions exist in your templates but cannot track their runtime execution within the Crossplane CLI's render process.
+
 You can check out what options are available for the `behave` command by running
 ```bash
 behave --help
@@ -89,8 +108,119 @@ this tool can become very valuable in validating your compositions with differen
 ## Features
 Check [the features README in the docs](docs/features.md) to get an overview of how to write features and the rationale behind them in the context of testing Crossplane compositions.
 
+For information about coverage reporting, see the [Coverage Guide](docs/coverage.md).
+
 ## How it works
 Check [how this tool works](docs/how_it_works.md).
+
+## Coverage Reports
+
+This tool provides coverage reporting for Crossplane compositions and Go template functions to help you understand how well your tests exercise your compositions.
+
+### What Coverage Measures
+
+1. **Parameter Coverage**: Tracks which parameters from your Composite Resource Definitions (XRDs) are actually used in your test cases
+   - Extracts all possible parameters from XRD schemas (`definition.yaml`)
+   - Identifies which parameters are set in your test claims and feature files
+   - Reports percentage of parameters covered by tests
+
+2. **Template Function Coverage**: Tracks which Go template functions (built-in + sprig) are used in your compositions
+   - Identifies available template functions (e.g., `index`, `upper`, `lower`, `trim`, `split`, etc.)
+   - Performs static analysis of composition templates to detect function usage
+   - Reports which functions are used vs. unused
+
+### Running Coverage
+
+Enable coverage reporting using the `-D coverage=true` flag:
+
+```bash
+behave test -D coverage=true
+```
+
+Or set the environment variable:
+
+```bash
+export COMPOSITION_TESTER_COVERAGE=true
+behave test
+```
+
+### Coverage Output
+
+Coverage reports are generated in two formats:
+- **Console output**: Human-readable summary printed after tests complete
+- **coverage-report.json**: Machine-readable JSON file for CI/CD integration
+- **coverage-report.yaml**: YAML format for easy reading
+
+Example console output:
+```
+================================================================================
+CROSSPLANE COMPOSITION COVERAGE REPORT
+================================================================================
+
+📋 PARAMETER COVERAGE BY COMPOSITION
+--------------------------------------------------------------------------------
+
+  Composition: service-account-with-functions
+    Total Parameters:   3
+    Covered Parameters: 2
+    Coverage:           66.7%
+    ✓ Covered: serviceAccountName, serviceAccountNamespace
+    ✗ Uncovered: policiesARN
+
+--------------------------------------------------------------------------------
+🔧 GO TEMPLATE FUNCTION COVERAGE
+--------------------------------------------------------------------------------
+  Total Functions:   150
+  Used Functions:    12
+  Coverage:          8.0%
+
+  Top used functions:
+    index
+    upper
+    printf
+    ...
+```
+
+### Example JSON Report Structure
+
+```json
+{
+  "parameter_coverage_by_composition": {
+    "service-account-with-functions": {
+      "composition_name": "service-account-with-functions",
+      "parameters_total": 3,
+      "parameters_covered": 2,
+      "coverage_percentage": 66.67,
+      "covered_parameters": ["serviceAccountName", "serviceAccountNamespace"],
+      "uncovered_parameters": ["policiesARN"]
+    }
+  },
+  "template_function_coverage": {
+    "functions_total": 150,
+    "functions_used": 12,
+    "coverage_percentage": 8.0,
+    "used_functions": {
+      "index": 0,
+      "upper": 0,
+      ...
+    },
+    "unused_functions": ["add", "sub", ...]
+  }
+}
+```
+
+### Integration with CI/CD
+
+Coverage reports can be integrated into your CI/CD pipelines:
+
+```bash
+# Run tests with coverage
+behave test -D coverage=true
+
+# Parse coverage-report.json for quality gates
+# Example: fail if parameter coverage < 80%
+python -c "import json; report = json.load(open('coverage-report.json')); exit(0 if all(c['coverage_percentage'] >= 80 for c in report['parameter_coverage_by_composition'].values()) else 1)"
+```
 
 ## CI/CD Integration
 `Behave` has very good integration with test-reporting tools like [Allure](https://allurereport.org/). 

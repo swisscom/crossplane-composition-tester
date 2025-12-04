@@ -1,0 +1,7 @@
+apiVersion: storage.example.com/v1alpha1
+kind: S3Bucket
+metadata:
+  name: test-bucket
+spec:
+  bucketName: my-test-bucket-123
+  encryption: true

@@ -1,0 +1,33 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: xs3buckets.aws.storage.example.com
+spec:
+  compositeTypeRef:
+    apiVersion: storage.example.com/v1alpha1
+    kind: XS3Bucket
+  mode: Pipeline
+  pipeline:
+  - step: create-bucket
+    functionRef:
+      name: function-go-templating
+    input:
+      apiVersion: gotemplating.fn.crossplane.io/v1beta1
+      kind: GoTemplate
+      source: Inline
+      inline:
+        template: |
+          {{ $bucketName := .observed.composite.resource.spec.bucketName }}
+          {{ $encryption := default true .observed.composite.resource.spec.encryption }}
+          {{ $versioning := default false .observed.composite.resource.spec.versioning }}
+          
+          apiVersion: s3.aws.crossplane.io/v1beta1
+          kind: Bucket
+          metadata:
+            name: {{ $bucketName }}
+          spec:
+            forProvider:
+              acl: private
+              locationConstraint: us-east-1
+            providerConfigRef:
+              name: aws-provider

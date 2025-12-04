@@ -1,0 +1,26 @@
+parameter_coverage_by_composition:
+  s3-bucket:
+    composition_name: s3-bucket
+    parameters_total: 8
+    parameters_covered: 3
+    covered_parameters:
+    - bucketName
+    - encryption
+    - versioning
+    uncovered_parameters:
+    - lifecycleRules
+    - lifecycleRules.enabled
+    - lifecycleRules.expirationDays
+    - lifecycleRules.id
+    - tags
+    coverage_percentage: 37.5
+  service-account-with-functions:
+    composition_name: service-account-with-functions
+    parameters_total: 3
+    parameters_covered: 3
+    covered_parameters:
+    - policiesARN
+    - serviceAccountName
+    - serviceAccountNamespace
+    uncovered_parameters: []
+    coverage_percentage: 100.0
