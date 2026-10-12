@@ -21,8 +21,8 @@ from behave.runner import Context
 from benedict import benedict
 from hamcrest import assert_that
 
-from steps.utils.constants import DICT_BENEDICT_SEPARATOR
-from steps.utils.utils import get_from_context, get_resource_from_context
+from steps.utils.constants import DICT_BENEDICT_SEPARATOR, CTX_OBSERVED_RESOURCES
+from steps.utils.utils import get_from_context, get_resource_from_context, to_benedict_keypath
 
 
 def prepare_file(ctx: Context, kind: str, filepath: str, load_into_context: bool = False,
@@ -67,6 +67,21 @@ def prepare_file(ctx: Context, kind: str, filepath: str, load_into_context: bool
             name=kind,
             attachment_type=allure.attachment_type.TEXT
         )
+        
+def update_xr_params(ctx: Context, resource_updates):
+    """Update the xr with new parameters
+    
+    Arguments:
+        ctx {Context} -- behave context
+        resource_updates {dict} -- resource updates
+    """
+    xr_updates = get_from_context(ctx, "xr_updates", False)
+    if not xr_updates:
+        xr_updates = benedict({}, keypath_separator=DICT_BENEDICT_SEPARATOR)
+        ctx.xr_updates = xr_updates
+
+    for key, value in resource_updates.items():
+        set_resource_param(xr_updates, key, value)
 
 
 def update_resource_params(ctx: Context, resource_name: str, resource_updates):
@@ -81,7 +96,7 @@ def update_resource_params(ctx: Context, resource_name: str, resource_updates):
         AssertionError: resource does not exist in context
     """
     # assert resource exists in desired
-    get_resource_from_context(ctx, resource_name, assert_exists=True)
+    get_resource_from_context(ctx, resource_name, state=CTX_OBSERVED_RESOURCES, assert_exists=True)
 
     updates = get_from_context(ctx, "updates", False)
     if not updates:
@@ -89,7 +104,9 @@ def update_resource_params(ctx: Context, resource_name: str, resource_updates):
         ctx.updates = updates
 
     for key, value in resource_updates.items():
-        set_resource_param(updates, f"{resource_name}.{key}", value)
+        # Escape dots in resource_name unless already escaped
+        safe_resource_name = resource_name.replace('.', '\\.')
+        set_resource_param(updates, f"{safe_resource_name}.{key}", value)
 
 
 def set_resource_param(resource, key: str, value: str):
@@ -100,6 +117,4 @@ def set_resource_param(resource, key: str, value: str):
         key {str} -- key
         value {str} -- value
     """
-    keypath = key.replace(".", DICT_BENEDICT_SEPARATOR)
-
-    resource[keypath] = value
+    resource[to_benedict_keypath(key)] = value

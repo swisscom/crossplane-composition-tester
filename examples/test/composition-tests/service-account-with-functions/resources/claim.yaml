@@ -14,16 +14,18 @@
 
 
 apiVersion: srvaccount.example.com/v1alpha1
-kind: SrvAccount
+kind: XSrvAccount
 metadata:
   labels:
     crossplane.io/claim-name: green-demo-sa
     crossplane.io/claim-namespace: demo
     crossplane.io/composite: green-demo-sa-vsmvw
-  name: green-demo-sa
-  namespace: demo
+  name: green-demo-sa-vsmvw
 spec:
   serviceAccountName: green-demo-sa
   serviceAccountNamespace: demo
 #  policiesARN:
 #    - policyArn1
+status:
+  # initial status read by the composition (see statusTestWordLength in the feature file)
+  testWord: hello

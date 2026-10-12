@@ -12,16 +12,29 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-BASE_PATH = f"features"
+import os
+import tempfile
 
-TMP_OBSERVED_FILE_PATH = "/tmp/observed.yaml"
-TMP_CLAIMS_FILE_PATH = "/tmp/claims"
+# Temp files are scoped per process so that multiple behave workers (see parallel_runner.py)
+# or concurrent runs on the same machine never overwrite each other's render inputs.
+_TMP_DIR = os.path.join(tempfile.gettempdir(), f"xplane-composition-tester-{os.getpid()}")
 
+TMP_OBSERVED_FILE_PATH = os.path.join(_TMP_DIR, "observed.yaml")
+TMP_XR_FILE_PATH = os.path.join(_TMP_DIR, "xr.yaml")
+
+CTX_DESIRED_COMPOSITE_FOR_TEST = "xr_for_test"
 CTX_DESIRED_RESOURCES = "desired_resources"
 CTX_DESIRED_COMPOSITE = "desired_xr"
+CTX_OBSERVED_RESOURCES = "observed_resources"
+CTX_OBSERVED_COMPOSITE = "observed_xr"
+
+RESOURCES_UPDATES = "updates"
+XR_UPDATES = "xr_updates"
 
 CLAIM = "claim"
+XR = "xr"
 COMPOSITION = "composition"
+DEFINITION = "definition"
 FUNCTIONS = "functions"
 ENVCONFIG = "envconfig"
 OBSERVED = "observed"

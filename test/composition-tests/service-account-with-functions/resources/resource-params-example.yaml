@@ -1,0 +1,39 @@
+# Example values file for updating observed resource parameters
+# This file demonstrates how to use complex or multiline parameter values
+# that would be hard to write directly in feature files.
+#
+# Usage in a feature file:
+# Given change observed resource my-resource with parameters from values file resource-params-example.yaml
+
+# Simple string parameters
+status.simpleValue: "some-value"
+status.atProvider.description: "This is a multiline description
+  that spans multiple lines and would be
+  cumbersome to write in a feature file table."
+
+# Array parameters
+status.atProvider.securityGroupIds:
+  - sg-12345
+  - sg-67890
+
+# You can find multiline strings like this inside your manifests
+status.atProvider.configuration: >
+  hello: world
+
+  just: a multiline string example
+  
+# Multiline YAML string (for JSON policies, scripts, etc.)
+status.atProvider.document: |
+  {
+    "Version": "2012-10-17",
+    "Statement": [
+      {
+        "Effect": "Allow",
+        "Action": [
+          "s3:GetObject",
+          "s3:PutObject"
+        ],
+        "Resource": "arn:aws:s3:::my-bucket/*"
+      }
+    ]
+  }

@@ -1,0 +1,5 @@
+apiVersion: defaulting.example.com/v1alpha1
+kind: XDefaulted
+metadata:
+  name: example
+spec: {}

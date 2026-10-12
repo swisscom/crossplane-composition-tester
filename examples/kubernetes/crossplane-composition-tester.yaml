@@ -9,9 +9,19 @@ spec:
         app: crossplane-composition-tester
     spec:
       restartPolicy: Never
+      initContainers:
+        # The tester image runs as the non-root user 'appuser' (uid 1000): make the results directory writable for it
+        - name: allure-results-permissions
+          image: busybox:1.36
+          command: ["sh", "-c", "chown 1000:1000 /app/allure-results"]
+          volumeMounts:
+            - name: allure-results-volume
+              mountPath: /app/allure-results
       containers:
         - name: crossplane-composition-tester
-          image: benmalekarim/crossplane-composition-tester:v0.0.1
+          # Build it from the repository root and push it to a registry your cluster can pull from:
+          #   docker build -t <your-registry>/crossplane-composition-tester:1.0.0 .
+          image: <your-registry>/crossplane-composition-tester:1.0.0
           args:
             - "test/composition-tests"
             - "-f"

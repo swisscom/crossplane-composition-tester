@@ -2,5 +2,5 @@
 
 Run
 ```
-./tests_runner.sh tests
+./tests_runner.sh test
 ```

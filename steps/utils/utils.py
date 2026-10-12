@@ -24,27 +24,32 @@ from benedict import benedict
 from hamcrest import assert_that, none, is_not
 
 from steps.utils.constants import (
-        DICT_BENEDICT_SEPARATOR,
-        TMP_OBSERVED_FILE_PATH,
-        OBSERVED,
-        CTX_DESIRED_RESOURCES,
-        CTX_DESIRED_COMPOSITE)
+    DICT_BENEDICT_SEPARATOR,
+    TMP_OBSERVED_FILE_PATH,
+    TMP_XR_FILE_PATH,
+    CTX_DESIRED_RESOURCES,
+    CTX_DESIRED_COMPOSITE,
+    CTX_OBSERVED_COMPOSITE,
+    CTX_OBSERVED_RESOURCES,
+    RESOURCES_UPDATES,
+    XR_UPDATES,
+    CTX_DESIRED_COMPOSITE_FOR_TEST)
 
 logger = logging.getLogger("xplane-composition-tester logger")
 logger.setLevel(logging.INFO)
 
 
 def create_fake_status_conditions(ready=False, synced=True):
-    """Create fake status conditions
+    """
+    Create fake status conditions for testing.
 
-    Keyword Arguments:
-        ready {bool} -- ready status (default: {False})
-        synced {bool} -- synced status (default: {True})
+    Args:
+        ready (bool): Ready status. Defaults to False.
+        synced (bool): Synced status. Defaults to True.
 
     Returns:
-        list -- list of status conditions
+        list[dict]: List of status conditions.
     """
-    # TODO: Pay attention as to how different status affect the renderer
     ready_condition = {
         "lastTransitionTime": "2023-11-24T15:29:59Z",
         "reason": "Available" if ready else "Unavailable",
@@ -65,6 +70,13 @@ def get_dump_path(ctx: Context, filename: str) -> str:
     """
     Return the file path for dumping content.
     If ctx.execution_folder is set, use that; otherwise, fallback to 'dump' in the current working directory.
+
+    Args:
+        ctx (Context): Behave context.
+        filename (str): Name of the file.
+
+    Returns:
+        str: Full path to the dump file.
     """
     if hasattr(ctx, "execution_folder"):
         dump_dir = Path(ctx.execution_folder)
@@ -75,96 +87,98 @@ def get_dump_path(ctx: Context, filename: str) -> str:
 
 
 def prepare_render_args(ctx: Context, log_input: bool = False):
-    """Prepare crossplane render command arguments.
+    """
+    Prepare arguments for the crossplane render command.
 
-    We identify 3 cases:
-    1. We need to run render with no observed state (e.g when we run the claim for the first time)
-    2. We need to run render with an observed state which is provided in the context from a dedicated step.
-    3. We need to run render with an observed state which is the desired resources from the context plus the updates from dedicated steps.
+    Handles:
+        1. No observed state (first run).
+        2. Observed state from context.
+        3. Observed state as desired resources plus updates.
 
-    Arguments:
-        ctx {Context} -- behave context
-
-    Keyword Arguments:
-        log_input {bool} -- log the input (the observed resources)  to render (default: {False})
+    Args:
+        ctx (Context): Behave context.
+        log_input (bool): Whether to log input files.
 
     Returns:
-        list -- crossplane render command arguments
+        list: Crossplane render command arguments.
     """
     iteration_id = get_iteration_id(ctx)
-    # logger.info(f"uid is {uid}")
+    desired_xr = get_from_context(ctx, CTX_DESIRED_COMPOSITE, assert_exists=True)
+
+    observed_resources = get_from_context(ctx, CTX_OBSERVED_RESOURCES)
+    xr_updates = get_from_context(ctx, XR_UPDATES)
+    resource_updates = get_from_context(ctx, RESOURCES_UPDATES)
+
+    render_args = [
+        "crossplane", "render", "--include-full-xr", TMP_XR_FILE_PATH,
+        ctx.composition_filepath, ctx.functions_filepath
+    ]
     
+    envconfig_arg = get_from_context(ctx, "envconfig_filepath")
+    if envconfig_arg:
+        render_args += ["-e", envconfig_arg]
+
+    # Pass the definition to render as --xrd so the XRD's schema defaults (and pruning) are
+    # applied to the XR before composing — the same definition file (auto-resolved by
+    # convention or overridden by an 'input definition' step) that the validation steps use.
+    definition_filepath = get_from_context(ctx, "definition_filepath")
+    if definition_filepath and Path(definition_filepath).exists():
+        render_args += ["--xrd", str(definition_filepath)]
+
+    render_args += ["--include-context"]
+    
+    # Clean up temp files
+    for path in [TMP_XR_FILE_PATH, TMP_OBSERVED_FILE_PATH]:
+        if os.path.exists(path):
+            os.remove(path)
+
+    # Apply updates to observed resources if present
+    if observed_resources:
+        if resource_updates:
+            for resource, update in resource_updates.items():
+                if resource in observed_resources:
+                    deep_update(observed_resources[resource], update)
+            if log_input:
+                dump_yaml_to_file(get_dump_path(ctx, f"{iteration_id}-in-changes-from-steps.yaml"), resource_updates)
+        if log_input:
+            dump_yaml_to_file(get_dump_path(ctx, f"{iteration_id}-in-observed.yaml"), observed_resources)
+
+    # Apply updates to XR if present
+    if xr_updates:
+        deep_update(desired_xr, xr_updates)
+        if log_input:
+            dump_yaml_to_file(get_dump_path(ctx, f"{iteration_id}-in-xr-changes-from-steps.yaml"), xr_updates)
     if log_input:
-        dump_yaml_to_file(get_dump_path(ctx, f"{iteration_id}-in-xr.yaml"), ctx.claim)
-        
-    observed_file = getattr(ctx, f"{OBSERVED}_filepath", None)
-    observed_resources = getattr(ctx, CTX_DESIRED_RESOURCES, None)
-    # logger.info(f"observed file is {observed_file}")
-    # logger.info(f"observed resources are {observed_resources}")
-    
-    envconfig_arg = ctx.envconfig_filepath
+        dump_yaml_to_file(get_dump_path(ctx, f"{iteration_id}-in-xr.yaml"), desired_xr)
 
-    # Check if we need to run render without an observed state
-    if not observed_file and not observed_resources:
-        return ["crossplane", "render", ctx.claim_filepath,
-                ctx.composition_filepath, ctx.functions_filepath, "-e", envconfig_arg]
-        
-    if observed_file:
-        # use the observed file for one render round
-        delattr(ctx, f"{OBSERVED}_filepath")
+    # Always write XR to file
+    dump_yaml_to_file(TMP_XR_FILE_PATH, desired_xr)
 
-    else:
-        # prepare observed file from the desired resources
-
-        if os.path.exists(TMP_OBSERVED_FILE_PATH):
-            # Cleanup current temp file
-            os.remove(TMP_OBSERVED_FILE_PATH)
-
-        # First get the desired resources that will act as observed resources to the next render round
-        assert observed_resources is not None, f"No resources found in context"
-
+    # If observed resources exist, write observed file and add to args
+    if observed_resources:
+        observed = [desired_xr] + list(observed_resources.values())
+        dump_yaml_to_file(TMP_OBSERVED_FILE_PATH, observed, dump_multiple_resources=True)
         if log_input:
             dump_yaml_to_file(get_dump_path(ctx, f"{iteration_id}-in-observed-from-previous-desired.yaml"), observed_resources)
+        return render_args + ["-o", TMP_OBSERVED_FILE_PATH]
 
-        # Merge the observed with the updates accumulated so far
-        updates = getattr(ctx, "updates", None)
-        if updates:
-            if log_input:
-                dump_yaml_to_file(get_dump_path(ctx, f"{iteration_id}-in-changes-from-steps.yaml"), updates)
-
-            for resource in ctx.updates:
-                if resource in observed_resources:
-                    deep_update(observed_resources[resource], ctx.updates[resource])
-
-            if log_input:
-                dump_yaml_to_file(get_dump_path(ctx, f"{iteration_id}-in-observed.yaml"), observed_resources)
-
-        # Then dump the observed onto a temp file
-        # logger.info(f"running with observed resources {observed_resources}")
-        dump_yaml_to_file(TMP_OBSERVED_FILE_PATH,
-                          observed_resources.values(), dump_multiple_resources=True)
-        observed_file = TMP_OBSERVED_FILE_PATH
-
-    # run the renderer with the observed file as input
-    return ["crossplane", "render", ctx.claim_filepath,
-            ctx.composition_filepath, ctx.functions_filepath, "-e", envconfig_arg, "-o", observed_file]
+    return render_args
 
 
-def get_from_context(ctx: Context, attr: str, assert_exists: bool = True):
-    """Get an attribute from context
+def get_from_context(ctx: Context, attr: str, assert_exists: bool = False):
+    """
+    Get an attribute from context.
 
-    Arguments:
-        ctx {Context} -- behave context
-        attr {str} -- attribute name
-
-    Keyword Arguments:
-        assert_exists {bool} -- assert that the attribute exists (default: {True})
+    Args:
+        ctx (Context): Behave context.
+        attr (str): Attribute name.
+        assert_exists (bool): Assert that the attribute exists. Defaults to True.
 
     Raises:
-        AssertionError: attribute does not exist
+        AssertionError: If attribute does not exist.
 
     Returns:
-        object -- attribute value
+        object: Attribute value.
     """
     attr_value = getattr(ctx, attr, None)
     if assert_exists:
@@ -173,23 +187,25 @@ def get_from_context(ctx: Context, attr: str, assert_exists: bool = True):
     return attr_value
 
 
-def get_resource_from_context(ctx: Context, resource_name: str, assert_exists: bool = True):
+def get_resource_from_context(ctx: Context, resource_name: str, state=CTX_DESIRED_RESOURCES, assert_exists: bool = True):
     """
-    Get a resource from context
+    Get a resource from context.
 
-    Arguments:
-        ctx {Context} -- behave context
-        resource_name {str} -- resource name
-
-    Keyword Arguments:
-        assert_exists {bool} -- assert that the resource exists (default: {True})
+    Args:
+        ctx (Context): Behave context.
+        resource_name (str): Resource name.
+        state (str): Context attribute for resources, mainly observed or desired. Defaults to CTX_DESIRED_RESOURCES.
+        assert_exists (bool): Assert that the resource exists. Defaults to True.
 
     Raises:
-        AssertionError: resource does not exist in context
+        AssertionError: If resource does not exist in context.
+
+    Returns:
+        dict: Resource entry.
     """
     # Get the resource from context
     desired_resources = get_from_context(
-        ctx, CTX_DESIRED_RESOURCES, assert_exists=True)
+        ctx, state, assert_exists=True)
     desired_resource = desired_resources.get(resource_name)
     if assert_exists:
         assert_that(desired_resource, is_not(none()),
@@ -198,81 +214,102 @@ def get_resource_from_context(ctx: Context, resource_name: str, assert_exists: b
 
 
 def get_resource_entry(resource, key: str, default=None):
-    """Get a resource entry
+    """
+    Get a resource entry by key, supporting nested keys with custom separator.
 
-    Arguments:
-        resource {dict} -- resource
-        key {str} -- key
+    Args:
+        resource (dict): Resource dictionary.
+        key (str): Key (dot notation supported, use \\. for literal dot).
+        default: Default value if key not found.
 
     Returns:
-        [type] -- entry value
+        Any: Entry value or default.
     """
     # Replace dots with the custom DICT_BENEDICT_SEPARATOR to access nested keys
     # Except if the dot is escaped to not replace them in keys with dots (e.g. crossplane.io/claim-name)
-    keypath = re.sub(r'(?<!\\)\.', DICT_BENEDICT_SEPARATOR, key)
-    # Remove the escape character from the escaped dots if any
-    keypath = keypath.replace(r'\.', '.')
+    keypath = to_benedict_keypath(key)
     return resource.get(keypath, default)
 
 
 def save_rendered_output(ctx: Context, render_output: str):
-    """Save the render output into a file
+    """
+    Save the render output into a file.
 
-    Arguments:
-        ctx {Context} -- behave context
-        render_ouput {str} -- render output
+    Args:
+        ctx (Context): Behave context.
+        render_output (str): Render output.
     """
     iteration_id = get_iteration_id(ctx, new_iteration=False)
     dump_string_to_file(get_dump_path(ctx, f"{iteration_id}-out-desired.yaml"), render_output)
 
 
-def read_desired_output_into_context(ctx: Context, render_output: str):
-    """Read the desired state from the render output and save it into context
+def load_xr_and_resources_into_context(ctx: Context, resources_raw: str, desired=True):
+    """
+    Load the composite resource and composed resources into context.
+    The payload can be either the desired state from render output or an observed state from a prepared file.
 
-    Arguments:
-        ctx {Context} -- behave context
-        render_ouput {str} -- render output
+    Args:
+        ctx (Context): Behave context.
+        resources_raw (str): YAML string of resources.
+        desired (bool): If True, store as desired as well.
 
     Raises:
-        AssertionError: no desired state found in render output
+        AssertionError: If no resources are found in the payload.
     """
-    desired_state = []
+    # The first resource from the crossplane render output or the observed is always the xr
+    # Extract it separately since we use a different yaml load on the xr
+    resources_raw_split = resources_raw.strip().split("---")
+    xr_raw = resources_raw_split[1] if resources_raw.startswith("---") else resources_raw_split[0]
     try:
+        # load the xr twice:
+        # 1 - using safe_load to preserve types (for xr validation) and as input to the render
+        # 2 - using base loader to load everything as string to run checks on the the xr output 
+        xr_for_validation = yaml.safe_load(xr_raw)
+        xr_for_test = yaml.load(xr_raw, Loader=yaml.BaseLoader)
+        # For the rest of the resources use load with BaseLoader to load everything as strings.
         # Parse only strings, dicts & lists. Ignore auxiliary types like booleans, integers, floats, etc.
-        desired_state = list(yaml.load_all(
-            render_output, Loader=yaml.BaseLoader))
+        resources = list(yaml.load_all(resources_raw, Loader=yaml.BaseLoader))
     except yaml.YAMLError as e:
-        assert_that(False, f"error parsing render output: {e}")
-    assert_that(len(desired_state), is_not(0), f"render: no desired state output")
-    # The first resource from the crossplane render output is always the xr
-    desired_xr = desired_state[0]
-    setattr(ctx, CTX_DESIRED_COMPOSITE, benedict(desired_xr, keypath_separator=DICT_BENEDICT_SEPARATOR))
-    desired_resources = desired_state[1:]
+        assert_that(False, f"error parsing resources: {e}")
+
+    assert_that(resources, is_not(none()), "no resources found in payload")
+    assert_that(len(resources), is_not(0), "no resources found in payload")
+    
+    # Save the xr in context
+    setattr(ctx, CTX_OBSERVED_COMPOSITE, benedict(xr_for_validation, keypath_separator=DICT_BENEDICT_SEPARATOR))
+    if desired:
+        setattr(ctx, CTX_DESIRED_COMPOSITE, benedict(xr_for_validation, keypath_separator=DICT_BENEDICT_SEPARATOR))
+        setattr(ctx, CTX_DESIRED_COMPOSITE_FOR_TEST, benedict(xr_for_test, keypath_separator=DICT_BENEDICT_SEPARATOR))
+
     # Create dict from resource names to their payload
-    desired_resources = dict(
-        [(dr["metadata"]["annotations"]["crossplane.io/composition-resource-name"],
-          benedict(dr, keypath_separator=DICT_BENEDICT_SEPARATOR)) for dr in desired_resources]
-    )
-    setattr(ctx, CTX_DESIRED_RESOURCES, desired_resources)
+    composed_resources = {}
+    for res in resources[1:]:
+        name = res.get("metadata", {}).get("annotations", {}).get("crossplane.io/composition-resource-name")
+        if name:
+            composed_resources[name] = benedict(res, keypath_separator=DICT_BENEDICT_SEPARATOR)
+    setattr(ctx, CTX_OBSERVED_RESOURCES, composed_resources)
+    if desired:
+        setattr(ctx, CTX_DESIRED_RESOURCES, composed_resources)
 
 
 def parse_value_cmd(value: str):
-    """Parse a value command, or return the value if no command returned
+    """
+    Parse a value command, or return the value if no command is present.
 
-    Arguments:
-        value {str} -- value
+    Args:
+        value (str): Value string.
 
     Returns:
-        type -- value
+        Any: Parsed value.
     """
     value = value.strip()
     if value.startswith('\\'):
         value_split = value.split(' ', 1)
         cmd = value_split[0].strip('\\')
-        
+
         if cmd == "nil" or cmd == "null":
             return None
-        
+
         arg = value_split[1]
         if cmd == 'list':
             value = arg.split(',')
@@ -284,23 +321,56 @@ def parse_value_cmd(value: str):
             raise NotImplementedError(f"unknown command {cmd}")
     return value
 
-
 def deep_update(d, u):
-    """Deep update dictionaries
+    """
+    Deep update dictionaries (recursive merge).
 
-    Arguments:
-        d {dict} -- dictionary to update
-        u {dict} -- dictionary to update from
+    Args:
+        d (dict): Dictionary to update.
+        u (dict): Dictionary to update from.
 
     Returns:
-        dict -- updated dictionary
+        dict: Updated dictionary.
     """
-    for k, v in u.items():
-        if isinstance(v, collections.abc.Mapping):
-            d[k] = deep_update(d.get(k, {}), v)
+    for key, value in u.items():
+        if isinstance(value, collections.abc.Mapping) and isinstance(d.get(key), collections.abc.Mapping):
+            # If both are dictionaries, extend the merge recursively
+            deep_update(d[key], value)
+        elif isinstance(value, list) and isinstance(d.get(key), list):
+            # If both are lists, update elements if they differ or append new ones
+            d[key] = update_list(d[key], value)
         else:
-            d[k] = v
+            # Otherwise, override the value
+            d[key] = value
     return d
+
+def update_list(source_list, override_list):
+    """
+    Update a list in place by applying overrides from another list.
+
+    Args:
+        source_list (list): The original list to update.
+        override_list (list): The list with new values.
+
+    Returns:
+        list: Updated list.
+    """
+    max_len = max(len(source_list), len(override_list))
+    updated_list = source_list[:]
+
+    for i in range(max_len):
+        if i < len(override_list):
+            if i >= len(updated_list):
+                # Append new elements if the source list is shorter
+                updated_list.append(override_list[i])
+            elif isinstance(updated_list[i], collections.abc.Mapping) and isinstance(override_list[i], collections.abc.Mapping):
+                # Recursively update if the item is a dict
+                deep_update(updated_list[i], override_list[i])
+            else:
+                # Replace the element if it differs
+                updated_list[i] = override_list[i]
+        # Optionally handle additional items from source_list (e.g., preserve)
+    return updated_list
 
 
 def dump_yaml_to_file(filepath, content: str, dump_multiple_resources: bool = False):
@@ -308,36 +378,44 @@ def dump_yaml_to_file(filepath, content: str, dump_multiple_resources: bool = Fa
     Dump content to file. Creates file if not exists.
     If dump_multiple_resources is True, dump as a list of resources, else dump as a single resource.
 
-    Arguments:
-        filepath {str} -- path to file
-        content {dict} -- content to dump
-        dump_multiple_resources {bool} -- dump multiple resources
+    Args:
+        filepath (str): Path to file.
+        content (dict or list): Content to dump.
+        dump_multiple_resources (bool): Dump multiple resources if True.
 
     Raises:
-        AssertionError: error dumping to file
+        AssertionError: If error occurs during dumping.
     """
     filepath = Path(filepath)
     filepath.parent.mkdir(exist_ok=True, parents=True)
+
+    def str_presenter(dumper, data):
+        if isinstance(data, str) and '\n' in data:
+            return dumper.represent_scalar('tag:yaml.org,2002:str', data, style='|')
+        return dumper.represent_scalar('tag:yaml.org,2002:str', data)
+
+    yaml.add_representer(str, str_presenter)
+
     try:
         with open(filepath, mode="w+", encoding="utf-8") as file:
             if dump_multiple_resources:
-                yaml.safe_dump_all(content, file)
+                yaml.safe_dump_all(content, file, default_flow_style=False, allow_unicode=True, sort_keys=False)
             else:
-                yaml.safe_dump(content, file)
+                yaml.safe_dump(content, file, default_flow_style=False, allow_unicode=True, sort_keys=False)
     except yaml.YAMLError as e:
         assert_that(False, f"error dumping to file: {e}")
 
 
 def dump_string_to_file(filepath, content: str):
     """
-    Dump content to file. Creates file if not exists.
+    Dump string content to file. Creates file if not exists.
 
-    Arguments:
-        filepath {str} -- path to file
-        content {dict} -- content to dump
+    Args:
+        filepath (str): Path to file.
+        content (str): Content to dump.
 
     Raises:
-        AssertionError: error dumping to file
+        AssertionError: If error dumping to file.
     """
     filepath = Path(filepath)
     filepath.parent.mkdir(exist_ok=True, parents=True)
@@ -349,13 +427,15 @@ def dump_string_to_file(filepath, content: str):
 
 
 def get_iteration_id(ctx: Context, new_iteration: bool = True):
-    """Get an iteration id from context.
+    """
+    Get an iteration id from context.
 
-    Arguments:
-        ctx {Context} -- behave context
+    Args:
+        ctx (Context): Behave context.
+        new_iteration (bool): If True, increment iteration. Defaults to True.
 
     Returns:
-        int -- iteration id
+        int: Iteration id.
     """
     iteration_id = getattr(ctx, "iteration_id", None)
     if iteration_id is None:
@@ -364,3 +444,20 @@ def get_iteration_id(ctx: Context, new_iteration: bool = True):
     elif new_iteration:
         ctx.iteration_id = iteration_id + 1
     return ctx.iteration_id
+
+
+def to_benedict_keypath(keypath: str) -> str:
+    """
+    Convert a dot-separated keypath to benedict keypath using the custom separator.
+    Escaped dots (\\.) are preserved as literal dots.
+
+    Args:
+        keypath (str): Dot-separated keypath.
+
+    Returns:
+        str: Keypath with custom separator.
+    """
+    # Replace unescaped dots with the custom separator
+    keypath = re.sub(r'(?<!\\)\.', DICT_BENEDICT_SEPARATOR, keypath)
+    # Replace escaped dots (\.) with literal dots
+    return keypath.replace(r'\.', '.')

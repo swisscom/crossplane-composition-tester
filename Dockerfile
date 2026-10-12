@@ -2,7 +2,9 @@ ARG PYTHON_VERSION=3.12-slim
 
 FROM python:${PYTHON_VERSION}
 
-ARG CROSSPLANE_VERSION=v1.17.3
+# Crossplane CLI v2.3+ runs the render engine in a Docker container, which is not available inside
+# this image: keep the CLI below v2.3 here unless the Docker daemon is made available to the container.
+ARG CROSSPLANE_VERSION=v2.0.8
 
 RUN apt-get update && \
     apt-get install -y curl && \
@@ -30,8 +32,12 @@ COPY environment.py .
 
 COPY cucumber_json.py .
 
+COPY parallel_runner.py .
+
+COPY tests_runner.sh .
+
 COPY steps/ ./steps
 
 RUN pip install -r requirements.txt
 
-ENTRYPOINT behave
+ENTRYPOINT ["python3", "-m", "behave"]

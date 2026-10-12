@@ -1,0 +1,38 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: xdefaulteds.defaulting.example.com
+spec:
+  compositeTypeRef:
+    apiVersion: defaulting.example.com/v1alpha1
+    kind: XDefaulted
+  mode: Pipeline
+  pipeline:
+    - step: configmap
+      functionRef:
+        name: function-go-templating
+      input:
+        apiVersion: gotemplating.fn.crossplane.io/v1beta1
+        kind: GoTemplate
+        source: Inline
+        inline:
+          template: |-
+            ---
+            apiVersion: kubernetes.crossplane.io/v1alpha1
+            kind: Object
+            metadata:
+              annotations:
+                gotemplating.fn.crossplane.io/composition-resource-name: cm
+            spec:
+              forProvider:
+                manifest:
+                  apiVersion: v1
+                  kind: ConfigMap
+                  metadata:
+                    name: xrd-defaulting-test
+                  {{- with $p := .observed.composite.resource.spec.someParam }}
+                  data:
+                    someParam: {{ $p | quote }}
+                  {{- end }}
+              providerConfigRef:
+                name: providerconfig-kubernetes
