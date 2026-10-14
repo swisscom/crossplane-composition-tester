@@ -15,9 +15,9 @@ docker network inspect "$NETWORK" >/dev/null 2>&1 || docker network create "$NET
 
 echo "=== Launch functions ==="
 trap 'docker rm -f function-go-templating function-auto-ready function-environment-configs >/dev/null 2>&1' EXIT
-docker run --network "$NETWORK" -d --rm --name function-go-templating xpkg.upbound.io/crossplane-contrib/function-go-templating:v0.12.3 --insecure --address=:9443
-docker run --network "$NETWORK" -d --rm --name function-auto-ready xpkg.upbound.io/crossplane-contrib/function-auto-ready:v0.7.0 --insecure --address=:9443
-docker run --network "$NETWORK" -d --rm --name function-environment-configs xpkg.upbound.io/crossplane-contrib/function-environment-configs:v0.8.0 --insecure --address=:9443
+docker run --network "$NETWORK" -d --rm --name function-go-templating xpkg.crossplane.io/crossplane-contrib/function-go-templating:v0.12.5 --insecure --address=:9443
+docker run --network "$NETWORK" -d --rm --name function-auto-ready xpkg.crossplane.io/crossplane-contrib/function-auto-ready:v0.7.0 --insecure --address=:9443
+docker run --network "$NETWORK" -d --rm --name function-environment-configs xpkg.crossplane.io/crossplane-contrib/function-environment-configs:v0.8.0 --insecure --address=:9443
 
 echo "=== Run the tests ==="
 docker run --rm --network "$NETWORK" \

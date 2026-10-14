@@ -288,11 +288,11 @@ fi
 
 # Declare array of function docker instances
 # Format: "container_name:port:image"
-# Images are sourced from the public Crossplane registry (xpkg.upbound.io).
+# Images are sourced from the public Crossplane registry (xpkg.crossplane.io).
 FUNCTION_DOCKER_INSTANCES=(
-    "function-go-templating-host:9443:xpkg.upbound.io/crossplane-contrib/function-go-templating:v0.12.3"
-    "function-auto-ready-host:9444:xpkg.upbound.io/crossplane-contrib/function-auto-ready:v0.7.0"
-    "function-environment-configs-host:9445:xpkg.upbound.io/crossplane-contrib/function-environment-configs:v0.8.0"
+    "function-go-templating-host:9443:xpkg.crossplane.io/crossplane-contrib/function-go-templating:v0.12.5"
+    "function-auto-ready-host:9444:xpkg.crossplane.io/crossplane-contrib/function-auto-ready:v0.7.0"
+    "function-environment-configs-host:9445:xpkg.crossplane.io/crossplane-contrib/function-environment-configs:v0.8.0"
 )
 
 start_functions_docker_instances() {

@@ -98,9 +98,9 @@ the address where its container listens. `tests_runner.sh` and `start_functions.
 
 | Function | Image | Address |
 |----------|-------|---------|
-| function-go-templating | `xpkg.upbound.io/crossplane-contrib/function-go-templating:v0.12.3` | `localhost:9443` |
-| function-auto-ready | `xpkg.upbound.io/crossplane-contrib/function-auto-ready:v0.7.0` | `localhost:9444` |
-| function-environment-configs | `xpkg.upbound.io/crossplane-contrib/function-environment-configs:v0.8.0` | `localhost:9445` |
+| function-go-templating | `xpkg.crossplane.io/crossplane-contrib/function-go-templating:v0.12.5` | `localhost:9443` |
+| function-auto-ready | `xpkg.crossplane.io/crossplane-contrib/function-auto-ready:v0.7.0` | `localhost:9444` |
+| function-environment-configs | `xpkg.crossplane.io/crossplane-contrib/function-environment-configs:v0.8.0` | `localhost:9445` |
 
 If your compositions use other functions, add them to the `FUNCTION_DOCKER_INSTANCES` list in `tests_runner.sh` and to your `functions.yaml`.
 
