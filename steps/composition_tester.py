@@ -126,6 +126,12 @@ def prepare_composition_directory(ctx: Context, composition_directory: str) -> N
     ctx.compositions_directory = compositions_directory
     ctx.composition_filepath = compositions_directory / "composition.yaml"
     ctx.definition_filepath = compositions_directory / "definition.yaml"
+    assert_that(ctx.composition_filepath.is_file(),
+                f"composition file ({ctx.composition_filepath}) not found in composition directory")
+    if not ctx.definition_filepath.is_file():
+        logger.warning(
+            f"definition file ({ctx.definition_filepath}) not found; "
+            "schema defaults will not be applied for this composition directory")
 
 
 @given("input compositions directory {compositions_directory}")

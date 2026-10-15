@@ -374,12 +374,16 @@ fi
 # Return 0 if version $1 >= version $2. Versions look like "v2.0.8" (the "v" prefix and any
 # pre-release/build suffix such as "-rc.1" are ignored); only major.minor.patch are compared.
 version_gte() {
-  local a b i
+  local a b i av bv
   IFS=. read -r -a a <<< "$(printf '%s' "${1#v}" | sed 's/[-+].*//')"
   IFS=. read -r -a b <<< "$(printf '%s' "${2#v}" | sed 's/[-+].*//')"
   for i in 0 1 2; do
-    if (( 10#${a[i]:-0} > 10#${b[i]:-0} )); then return 0; fi
-    if (( 10#${a[i]:-0} < 10#${b[i]:-0} )); then return 1; fi
+    # Keep only the leading digits of each segment and default to 0, so a missing or
+    # malformed (non-numeric) component compares as 0 instead of raising an arithmetic error.
+    av="${a[i]:-0}"; av="${av%%[!0-9]*}"; av="${av:-0}"
+    bv="${b[i]:-0}"; bv="${bv%%[!0-9]*}"; bv="${bv:-0}"
+    if (( 10#$av > 10#$bv )); then return 0; fi
+    if (( 10#$av < 10#$bv )); then return 1; fi
   done
   return 0
 }

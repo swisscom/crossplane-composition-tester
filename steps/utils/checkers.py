@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import functools
+import logging
 import re
 import subprocess
 from pathlib import Path
@@ -21,6 +22,8 @@ import allure
 from hamcrest import assert_that, equal_to, none, is_not, has_item, any_of, empty, has_length
 
 from steps.utils.utils import get_resource_entry
+
+logger = logging.getLogger("xplane-composition-tester logger")
 
 
 def _assert_resource_has_key_and_return_value(resource_name, resource, key: str):
@@ -138,8 +141,11 @@ def check_resources_are_empty(resources):
     )
     
 @functools.lru_cache(maxsize=None)
-def _crossplane_validate_command() -> tuple:
-    """Return the validate command of the installed crossplane CLI.
+def _detect_crossplane_validate_command() -> tuple:
+    """Probe the installed crossplane CLI for its validate subcommand.
+
+    Returns the detected command tuple on a successful probe, or None if the probe
+    failed (so the negative result is NOT cached and will be re-probed next time).
 
     The command is 'crossplane beta validate' up to CLI v2.2 and 'crossplane resource validate'
     from v2.3 (the CLI moved to the crossplane/cli repository). Both produce the same output.
@@ -148,7 +154,30 @@ def _crossplane_validate_command() -> tuple:
                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     if probe.returncode == 0:
         return ("crossplane", "resource", "validate")
-    return ("crossplane", "beta", "validate")
+    # Probe did not succeed. Do not cache a decision: a transient probe failure
+    # (CLI briefly unavailable, PATH not yet set in a sub-shell) must not
+    # permanently flip every subsequent validation to the wrong subcommand.
+    return None
+
+
+def _crossplane_validate_command() -> tuple:
+    """Return the validate command of the installed crossplane CLI.
+
+    Only a successful probe is memoized (via _detect_crossplane_validate_command); if the
+    probe fails we clear the cache and fall back to 'crossplane beta validate' for this call
+    only, so a flaky probe is retried rather than cached for the process lifetime.
+    """
+    detected = _detect_crossplane_validate_command()
+    if detected is not None:
+        logger.debug("crossplane validate command detected: %s", " ".join(detected))
+        return detected
+    # Clear the cached None so the next call re-probes instead of reusing the failure.
+    _detect_crossplane_validate_command.cache_clear()
+    fallback = ("crossplane", "beta", "validate")
+    logger.warning(
+        "crossplane validate probe failed; falling back to '%s' for this call "
+        "(will re-probe on next use)", " ".join(fallback))
+    return fallback
 
 
 def crossplane_validate(definition_filepath, resource, must_be_valid: bool = True) -> None:

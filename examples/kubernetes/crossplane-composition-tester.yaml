@@ -37,6 +37,9 @@ spec:
               mountPath: /app/allure-results
 
       volumes:
+        # NOTE: hostPath is only suitable for a single-node demo/dev cluster. The paths
+        # below are placeholders tied to one node's filesystem and are NOT safe for
+        # multi-node or production clusters — use a PersistentVolumeClaim there instead.
         - name: test-volume
           hostPath:
             path: /home/ubuntu/test   # Replace with the actual path on your host
