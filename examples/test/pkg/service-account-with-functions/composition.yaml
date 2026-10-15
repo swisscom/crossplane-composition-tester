@@ -50,6 +50,8 @@ spec:
           {{ $serviceAccountName:=.observed.composite.resource.spec.serviceAccountName }}
           {{ $serviceAccountNamespace:=.observed.composite.resource.spec.serviceAccountNamespace }}
 
+          {{- $xr := getCompositeResource . }}
+          {{- $statusTestWordLength :=  len $xr.status.testWord }}
           ---
           apiVersion: iam.aws.crossplane.io/v1beta1
           kind: Role
@@ -58,6 +60,7 @@ spec:
               gotemplating.fn.crossplane.io/composition-resource-name: role
             name: {{$roleName}}
           spec:
+            statusTestWordLength: {{$statusTestWordLength}}
             forProvider:
               assumeRolePolicyDocument: |
                 {
@@ -78,7 +81,7 @@ spec:
                     }
                   ]
                 }
-              permissionsBoundary: arn:aws:iam::{{$accountId}}:policy/sc-policy-cdk-pipeline-permission-boundary
+              permissionsBoundary: arn:aws:iam::{{$accountId}}:policy/example-policy-cdk-pipeline-permission-boundary
             providerConfigRef:
               name: providerconfig-aws
           ---
@@ -254,6 +257,28 @@ spec:
 
           {{ end }}
           {{ end }}
+  
+  - step: set-xr-status
+    functionRef:
+      name: function-go-templating
+    input:
+      apiVersion: gotemplating.fn.crossplane.io/v1beta1
+      kind: GoTemplate
+      source: Inline
+      inline:
+        template: |
+          apiVersion: srvaccount.example.com/v1alpha1
+          kind: XSrvAccount
+          status:
+            testWord: bye
+            {{/* Example of how to use the observed resources in the composition to set status fields in the XR */}}
+            {{ if and (ne .observed.resources nil) (ne ( index .observed.resources "default-policy" ) nil) }}
+              {{ with $multilineStringExample := (index .observed.resources "default-policy").resource.status.atProvider.configuration }}
+                {{ $configuration := fromYaml $multilineStringExample }}
+            hello: {{ $configuration.hello }}
+            just: {{ $configuration.just }}
+              {{ end }}
+            {{ end }}
 
   - step: automatically-detect-ready-composed-resources
     functionRef:

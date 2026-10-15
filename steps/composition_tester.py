@@ -33,68 +33,67 @@ logger.setLevel(logging.INFO)
 
 # doc: https://behave.readthedocs.io/en/latest/
 
-@given("input compositions directory {compositions_directory}")
-def prepare_compositions_directory(ctx: Context, compositions_directory):
-    """Prepare working directory with the compositions for the test. This handles the case where compositions
-    are located in a different directory than the default /pkg directory.
 
-    Arguments:
-        ctx {Context} -- behave context
-    """
-    ctx.compositions_directory = compositions_directory
-    logger.info(
-        f"Current working directory with compositions {compositions_directory}")
-
-
+@given("change observed xr with parameters")
 @given("input claim is changed with parameters")
-def claim_with_params(ctx: Context):
+def xr_is_updated_with(ctx: Context) -> None:
     """
-    Update the claim with parameters from the table
+    Update the XR (claim) with parameters from the table.
 
     Arguments:
-        ctx {Context} -- behave context
+        ctx (Context): behave context
 
     Raises:
-        AssertionError: no claim found in context
+        AssertionError: if no claim/XR found in context
     """
-    claim = get_from_context(ctx, "claim", assert_exists=True)
-    claim_updated = claim.copy()
-    for row in ctx.table:
-        param_name, param_value = row["param name"], row["param value"]
-        param_value = parse_value_cmd(param_value)
-        set_resource_param(claim_updated, param_name, param_value)
-
-    feature_name = ctx.feature.name
-    feature_name = feature_name.replace(" ", "_")
-    scenario_name = ctx.scenario.name
-    scenario_name = scenario_name.replace(" ", "_")
-    filename = f"claim_{scenario_name}.yaml"
-    filepath = f"{TMP_CLAIMS_FILE_PATH}/{feature_name}/{filename}"
-    logger.info(f"dumping updated claim to file {filepath}")
-    dump_yaml_to_file(filepath, claim_updated)
-    ctx.claim = claim_updated
-    ctx.claim_filepath = filepath
-
-    allure.attach.file(
-        filepath, name=filename, attachment_type=allure.attachment_type.TEXT
-    )
+    updates = {row["param name"]: parse_value_cmd(row["param value"]) for row in ctx.table}
+    update_xr_params(ctx, updates)
 
 
 @given("input claim {claim_file}")
-def prepare_claim(ctx: Context, claim_file):
-    # logger.info(f"get the claim {claim_file}")
-
+def prepare_claim(ctx: Context, claim_file: str) -> None:
     base_path = getattr(ctx, "base_path", None)
+    # Prepare file as claim to be used as claim validation
     prepare_file(
         ctx,
         CLAIM,
         f"{base_path}/resources/{claim_file}",
-        load_into_context=True,
+        load_into_context=False,
         attach_to_allure=True,
     )
+    
+    # Prepare file as observed xr and load it into the context to be used for subsequent renders
+    prepare_file(
+        ctx,
+        CTX_DESIRED_COMPOSITE,
+        f"{base_path}/resources/{claim_file}",
+        load_into_context=True,
+        attach_to_allure=False,
+    )
+    
+    # Loading a claim in the middle of the scenario should reset any previous updates to the xr
+    if hasattr(ctx, XR_UPDATES):
+        delattr(ctx, XR_UPDATES)
+
+    
+@given("input composition directory {composition_directory} and definition file {definition_file}")
+def prepare_definition_from_directory(ctx: Context, composition_directory: str, definition_file: str) -> None:
+    """Retrieve the definition file for the test from the specified directory under 'pkg' and check if it exists.
+
+    Arguments:
+        ctx {Context} -- behave context
+        composition_directory {str} -- composition directory
+        definition_file {str} -- composition filename
+    """
+    prepare_file(
+        ctx,
+        DEFINITION,
+        f"{ctx.project_root}/pkg/{composition_directory}/{definition_file}",
+    )
+
 
 @given("input composition directory {composition_directory} and file {composition_file}")
-def prepare_composition(ctx: Context, composition_directory, composition_file):
+def prepare_composition_from_directory(ctx: Context, composition_directory: str, composition_file: str) -> None:
     """Retrieve the composition file for the test from the specified directory under 'pkg' and check if it exists.
 
     Arguments:
@@ -109,9 +108,50 @@ def prepare_composition(ctx: Context, composition_directory, composition_file):
         load_into_context=False,
         attach_to_allure=False,
     )
+    
+    
+@given("input composition directory {composition_directory}")
+def prepare_composition_directory(ctx: Context, composition_directory: str) -> None:
+    """Use 'pkg/<composition_directory>' as the composition directory of the current scenario. Its
+    composition.yaml and definition.yaml become the defaults, and subsequent 'input composition <file>'
+    and 'input definition <file>' steps look up their files in this directory.
+
+    Arguments:
+        ctx {Context} -- behave context
+        composition_directory {str} -- composition directory relative to the 'pkg' directory
+    """
+    compositions_directory = Path(f"{ctx.project_root}/pkg/{composition_directory}")
+    assert_that(compositions_directory.is_dir(),
+                f"composition directory ({compositions_directory}) does not exist")
+    ctx.compositions_directory = compositions_directory
+    ctx.composition_filepath = compositions_directory / "composition.yaml"
+    ctx.definition_filepath = compositions_directory / "definition.yaml"
+
+
+@given("input compositions directory {compositions_directory}")
+def prepare_compositions_directory(ctx: Context, compositions_directory: str) -> None:
+    """Prepare working directory with the compositions for the test. This handles the case where compositions
+    are located in a different directory than the default /pkg directory.
+
+    Arguments:
+        ctx {Context} -- behave context
+    """
+    ctx.compositions_directory = compositions_directory
+    logger.info(
+        f"Current working directory with compositions {compositions_directory}")
+
+
+@given("input definition {definition_file_name}")
+def prepare_definition(ctx: Context, definition_file_name: str) -> None:
+    prepare_file(
+        ctx,
+        DEFINITION,
+        f"{ctx.compositions_directory}/{definition_file_name}",
+    )
+
 
 @given("input composition {composition_file}")
-def prepare_composition(ctx: Context, composition_file):
+def prepare_composition(ctx: Context, composition_file: str) -> None:
     """Retrieve the composition file for the test and check if it exists. By default, the compositions are
     retrieved from a dedicated pkg directory at the root of the project, that mirrors the structure of the test directory
     will all the features.
@@ -120,7 +160,6 @@ def prepare_composition(ctx: Context, composition_file):
         ctx {Context} -- behave context
         composition_file {str} -- composition filename
     """
-    # logger.info(f"get test composition {composition_file}")
     prepare_file(
         ctx,
         COMPOSITION,
@@ -132,7 +171,7 @@ def prepare_composition(ctx: Context, composition_file):
 
 @given("input environment config {envconfig_file}")
 @given("input environment config {envconfig_file} file")
-def prepare_environment_config(ctx: Context, envconfig_file):
+def prepare_environment_config(ctx: Context, envconfig_file: str) -> None:
     """Retrieve the environment config file for the test and check if it exists. By default, the envconfig file should be at the
     same level as the parent directory containing all features to test.
 
@@ -141,18 +180,18 @@ def prepare_environment_config(ctx: Context, envconfig_file):
         envconfig_file {str} -- environment configuration filename
     """
 
-    features_directory = ctx.base_path.parent
+    envconfigs_folder_path = ctx.envconfigs_folder_path
     prepare_file(
         ctx,
         ENVCONFIG,
-        f"{features_directory}/{envconfig_file}",
+        f"{envconfigs_folder_path}/{envconfig_file}",
         load_into_context=False,
         attach_to_allure=False,
     )
 
 
 @given("input functions {functions_file}")
-def prepare_functions(ctx: Context, functions_file):
+def prepare_functions(ctx: Context, functions_file: str) -> None:
     """Retrieve the functions file for the test and check if it exists. By default, the functions file
     should be at the same level as the parent directory containing all features to test.
 
@@ -176,57 +215,108 @@ def prepare_functions(ctx: Context, functions_file):
 
 
 @given("input observed state {observed_state_file} for next rendering")
-def prepare_observed_state(ctx: Context, observed_state_file):
+def prepare_observed_state(ctx: Context, observed_state_file: str) -> None:
     """Takes a custom observed state filename and stores it in the context.
 
     Arguments:
         ctx {Context} -- behave context
         observed_state_file {str} -- observed state filepath
     """
-
     base_path = getattr(ctx, "base_path", None)
+    filepath = f"{base_path}/resources/{observed_state_file}"
     prepare_file(
         ctx,
         OBSERVED,
-        f"{base_path}/resources/{observed_state_file}",
+        filepath,
         load_into_context=False,
-        attach_to_allure=True,
+        attach_to_allure=True
     )
+
+    # Set the current observed to the observed state from the file
+    with open(filepath, mode="r", encoding="utf-8") as file:
+        content = file.read()
+        load_xr_and_resources_into_context(ctx, content, desired=False)
+
+    # Loading an observed state from file overrides any existing changes to composed resources from the scenario
+    if hasattr(ctx, RESOURCES_UPDATES):
+        delattr(ctx, RESOURCES_UPDATES)
 
 
 @step("crossplane renders the composition")
-def render(ctx: Context):
+def render(ctx: Context) -> None:
     # get what is needed from the context:
     #  - claim/xr
     #  - composition
     #  - observed resources
-    #  - functions - default ones would be in xplane-pkg repo
-    #  - context from the environment file - default ones would be in xplane-pkg repo
+    #  - functions
+    #  - context from the environment file
 
-    # TODO: Add timeout to render?
-
-    # logger.info("rendering composition")
-        
     args = prepare_render_args(ctx, log_input=ctx.debug_mode)
-
-    out = subprocess.run(args, capture_output=True, text=True)
-    assert out.returncode == 0, f"error rendering: {out.stderr}"
-    # logger.info(out.stdout)
+    
+    try:
+        out = subprocess.check_output(args, universal_newlines=True, stderr=subprocess.STDOUT)
+    except subprocess.CalledProcessError as proc_exc:
+        allure.attach(
+            proc_exc.output,
+            name="render error output",
+        )
+        logger.error(f"Error rendering: {proc_exc.output}")
+        assert False, f"error rendering: {proc_exc.output}"
 
     # Attach output of render to allure report
     allure.attach(
-        out.stdout,
+        out,
         name="render output",
     )
 
     if ctx.debug_mode:
-        save_rendered_output(ctx, out.stdout)
+        save_rendered_output(ctx, out)
+
+    load_xr_and_resources_into_context(ctx, out)
     
-    read_desired_output_into_context(ctx, out.stdout)
+    
+
+@then("crossplane rendering fails with message containing {expected_message}")
+def render_fails_with_message(ctx: Context, expected_message: str) -> None:
+    args = prepare_render_args(ctx, log_input=ctx.debug_mode)
+
+    try:
+        subprocess.check_output(args, universal_newlines=True, stderr=subprocess.STDOUT)
+        assert False, "Expected composition rendering to fail, but it succeeded"
+    except subprocess.CalledProcessError as proc_exc:
+        allure.attach(
+            proc_exc.output,
+            name="render error output",
+        )
+        assert expected_message in proc_exc.output, (
+            f"Expected error message to contain '{expected_message}', "
+            f"but got: {proc_exc.output}"
+        )
+
+@then("check that the claim is valid")
+def validate_claim(ctx: Context) -> None:
+    crossplane_validate(ctx.definition_filepath, ctx.claim_filepath, must_be_valid=True)
+
+
+@then("check that the claim is invalid")
+def validate_wrong_claim(ctx: Context) -> None:
+    crossplane_validate(ctx.definition_filepath, ctx.claim_filepath, must_be_valid=False)
+
+
+@then("check that the xr is valid")
+def validate_xr(ctx: Context) -> None:
+    dump_yaml_to_file(TMP_XR_FILE_PATH, get_from_context(ctx, CTX_DESIRED_COMPOSITE, assert_exists=True))
+    crossplane_validate(ctx.definition_filepath, TMP_XR_FILE_PATH, must_be_valid=True)
+
+
+@then("check that the xr is invalid")
+def validate_wrong_xr(ctx: Context) -> None:
+    dump_yaml_to_file(TMP_XR_FILE_PATH, get_from_context(ctx, CTX_DESIRED_COMPOSITE, assert_exists=True))
+    crossplane_validate(ctx.definition_filepath, TMP_XR_FILE_PATH, must_be_valid=False)
 
 
 @then("check that no resources are provisioning")
-def check_no_resources(ctx: Context):
+def check_no_resources(ctx: Context) -> None:
     # ignore the xr, get only desired resources
     desired_resources = get_from_context(
         ctx, CTX_DESIRED_RESOURCES, assert_exists=False)
@@ -235,23 +325,19 @@ def check_no_resources(ctx: Context):
 
 @step("check that {resource_count:d} resource is provisioning")
 @step("check that {resource_count:d} resources are provisioning")
-def check_resource_count(ctx: Context, resource_count: int):
-    # logger.info(f"check that number of resources is {resource_count}")
-
+def check_resource_count(ctx: Context, resource_count: int) -> None:
     # ignore the xr, get only desired resources
-    desired_resources = get_from_context(ctx, CTX_DESIRED_RESOURCES)
+    desired_resources = get_from_context(ctx, CTX_DESIRED_RESOURCES, assert_exists=True)
     check_resources(desired_resources, resource_count)
 
 
 @step("check that {resource_count:d} resource is provisioning and it is")
 @step("check that {resource_count:d} resources are provisioning and they are")
-def check_resource_count_and_names(ctx: Context, resource_count: int):
-    # logger.info(f"check that number of resources is {resource_count}")
-
+def check_resource_count_and_names(ctx: Context, resource_count: int) -> None:
     expected_resources_names = [row["resource-name"] for row in ctx.table]
 
     # ignore the xr, get only desired resources
-    desired_resources = get_from_context(ctx, CTX_DESIRED_RESOURCES)
+    desired_resources = get_from_context(ctx, CTX_DESIRED_RESOURCES, assert_exists=True)
     check_resources(
         desired_resources,
         resource_count,
@@ -260,36 +346,56 @@ def check_resource_count_and_names(ctx: Context, resource_count: int):
 
 
 @step("check that resource {resource_name} has parameters with key prefix {key}")
-def check_resource_parameters_with_key_prefix(ctx, resource_name, key):
-    # logger.info(f"check the resource {resource_name} parameters under key {key}:")
-
+def check_resource_parameters_with_key_prefix(ctx: Context, resource_name: str, key: str) -> None:
     resource = get_resource_from_context(
         ctx, resource_name, assert_exists=True)
 
     for row in ctx.table:
-        param_name, param_value = row["param name"], row["param value"]
+        param_name = row["param name"]
+        param_value = row.get("param value")
 
         if key:
             param_name = f"{key}.{param_name}"
 
-        # TODO: Have support for operators like {regex} or {contains}
         assert_resource_has_entry(
             resource_name, resource, param_name, expected=param_value
         )
 
 
 @step("check that resource {resource_name} has parameters")
-def check_resource_parameters(ctx, resource_name):
-    # logger.info(f"check the resource {resource_name} parameters:")
+def check_resource_parameters(ctx: Context, resource_name: str) -> None:
     check_resource_parameters_with_key_prefix(ctx, resource_name, key="")
 
+
+
+@step("check that resource {resource_name} has parameter {param_name} equal to value in file {values_file}")
+def check_resource_parameter_equal_to_file(ctx: Context, resource_name: str, param_name: str, values_file: str) -> None:
+    """Check that a resource parameter equals the content of a file.
+
+    Useful for asserting multiline strings that are hard to express in feature file tables.
+
+    Arguments:
+        ctx {Context} -- behave context
+        resource_name {str} -- resource name
+        param_name {str} -- dotted parameter path
+        values_file {str} -- file path (relative to resources directory) containing the expected value
+    """
+    base_path = getattr(ctx, "base_path", None)
+    filepath = f"{base_path}/resources/{values_file}"
+
+    assert_that(os.path.exists(filepath),
+                f"values file ({filepath}) does not exist")
+
+    with open(filepath, mode="r", encoding="utf-8") as file:
+        expected = file.read().strip()
+
+    resource = get_resource_from_context(ctx, resource_name, assert_exists=True)
+    assert_resource_has_entry(resource_name, resource, param_name, expected=expected)
 
 @step(
     "check that resource {resource_name} does not have parameters with key prefix {key}"
 )
-def check_resource_missing_parameters_with_key_prefix(ctx, resource_name, key):
-    # logger.info(f"check the resource {resource_name} parameters under key {key}:")
-
+def check_resource_missing_parameters_with_key_prefix(ctx: Context, resource_name: str, key: str) -> None:
     resource = get_resource_from_context(
         ctx, resource_name, assert_exists=True)
 
@@ -303,14 +409,13 @@ def check_resource_missing_parameters_with_key_prefix(ctx, resource_name, key):
 
 
 @step("check that resource {resource_name} does not have parameters")
-def check_resource_missing_parameters(ctx, resource_name):
+def check_resource_missing_parameters(ctx: Context, resource_name: str) -> None:
     check_resource_missing_parameters_with_key_prefix(
         ctx, resource_name, key="")
 
 
 @step("check that resource {resource_name} has array parameters of length")
-def check_resource_array_parameters_length(ctx, resource_name):
-    # logger.info(f"check that resource {resource_name} has array parameters of length:")
+def check_resource_array_parameters_length(ctx: Context, resource_name: str) -> None:
     resource = get_resource_from_context(
         ctx, resource_name, assert_exists=True)
 
@@ -324,26 +429,48 @@ def check_resource_array_parameters_length(ctx, resource_name):
 
 @step("check that xr has status parameters")
 @step("check that composite has status parameters")
-def check_composite_status_parameters(ctx):
+def check_composite_status_parameters(ctx: Context) -> None:
     # Get the xr from context
     desired_xr = get_from_context(
-        ctx, CTX_DESIRED_COMPOSITE, assert_exists=True)
+        ctx, CTX_DESIRED_COMPOSITE_FOR_TEST, assert_exists=True)
 
     for row in ctx.table:
         param_name, param_value = row["param name"], row["param value"]
         param_name = f"status.{param_name}"
 
-        # TODO: Have support for operators like {regex} or {contains}
         assert_resource_has_entry(
             "composite", desired_xr, param_name, expected=param_value
         )
+
+        
+@step(
+    "change observed resource {resource_name} with status {new_status} and parameters from values file {values_file}"
+)
+def set_resource_status_and_parameters_from_values_file(ctx: Context, resource_name: str, new_status: str, values_file: str) -> None:
+    """Set the resource status and update with parameters from a values file
+    
+    This combines status setting with parameter loading from a file.
+    Useful for complex parameter values that need to be combined with status changes.
+
+    Arguments:
+        ctx {Context} -- behave context
+        resource_name {str} -- resource name
+        new_status {str} -- new status (READY or NOT READY)
+        values_file {str} -- values file path (relative to resources directory)
+
+    Raises:
+        AssertionError: resource not found in context or file not found
+    """
+    set_resource_status(ctx, resource_name, new_status)
+    
+    # No need to check that resource exists in desired, already guaranteed by set_resource_status
+    resource_is_updated_with_values_file(ctx, resource_name, values_file)
 
 
 @step(
     "change observed resource {resource_name} with status {new_status} and parameters"
 )
-def set_resource_status_and_parameters(ctx: Context, resource_name, new_status):
-    # logger.info(f"set the resource {resource_name} with status parameters: ")
+def set_resource_status_and_parameters(ctx: Context, resource_name: str, new_status: str) -> None:
     set_resource_status(ctx, resource_name, new_status)
 
     # No need to check that resource exists in desired, already guaranteed by set_resource_status
@@ -351,8 +478,7 @@ def set_resource_status_and_parameters(ctx: Context, resource_name, new_status):
 
 
 @step("change observed resource {resource_name} with status {new_status}")
-def set_resource_status(ctx: Context, resource_name, new_status):
-    # logger.info(f"set the resource {resource_name} status to {new_status}")
+def set_resource_status(ctx: Context, resource_name: str, new_status: str) -> None:
     # set the status based on a map of READY -> all the fields needed in conditions to show the status ready
 
     key = "status.conditions"
@@ -362,10 +488,44 @@ def set_resource_status(ctx: Context, resource_name, new_status):
         value = create_fake_status_conditions(ready=False, synced=False)
 
     update_resource_params(ctx, resource_name, {key: value})
+    
+
+@step("change observed resource {resource_name} with parameters from values file {values_file}")
+def resource_is_updated_with_values_file(ctx: Context, resource_name: str, values_file: str) -> None:
+    """Update the resource with parameters from a values file
+    
+    This is useful for multiline strings or complex parameter values that are hard to write in feature files.
+
+    Arguments:
+        ctx {Context} -- behave context
+        resource_name {str} -- resource name
+        values_file {str} -- values file path (relative to resources directory)
+
+    Raises:
+        AssertionError: resource not found in context or file not found
+    """
+    base_path = getattr(ctx, "base_path", None)
+    filepath = f"{base_path}/resources/{values_file}"
+    
+    # Check if file exists
+    assert_that(os.path.exists(filepath),
+                f"values file ({filepath}) does not exist")
+    
+    # Load the values file as YAML
+    with open(filepath, mode="r", encoding="utf-8") as file:
+        resource_updates = yaml.safe_load(file)
+    
+    assert_that(resource_updates, is_not(none()),
+                f"values file ({filepath}) is empty or invalid")
+    assert_that(isinstance(resource_updates, dict),
+                f"values file ({filepath}) must contain a dictionary of parameter updates")
+    
+    # Update the resource with the loaded parameters
+    update_resource_params(ctx, resource_name, resource_updates)
 
 
 @step("change observed resource {resource_name} with parameters")
-def resource_is_updated_with(ctx: Context, resource_name: str):
+def resource_is_updated_with(ctx: Context, resource_name: str) -> None:
     """Update the resource with parameters from the table
 
     Arguments:
@@ -383,8 +543,9 @@ def resource_is_updated_with(ctx: Context, resource_name: str):
     update_resource_params(ctx, resource_name, resource_updates)
 
 
+
 @given("change following observed resources with status {new_status}")
-def following_resources_are_ready(ctx: Context, new_status: str):
+def following_resources_are_ready(ctx: Context, new_status: str) -> None:
     """
     Update the resources with the given status
 
@@ -401,7 +562,7 @@ def following_resources_are_ready(ctx: Context, new_status: str):
 
 
 @given("change all observed resources with status {new_status}")
-def all_resources_are_ready(ctx: Context, new_status: str):
+def all_resources_are_ready(ctx: Context, new_status: str) -> None:
     """
     Update all resources with the given status
 
@@ -412,51 +573,20 @@ def all_resources_are_ready(ctx: Context, new_status: str):
     Raises:
         AssertionError: no desired resources found in context
     """
-    desired_resources = get_from_context(
-        ctx, CTX_DESIRED_RESOURCES, assert_exists=True)
-    for resource_name in desired_resources.keys():
+    observed_resources = get_from_context(
+        ctx, CTX_OBSERVED_RESOURCES, assert_exists=True)
+    for resource_name in observed_resources.keys():
         set_resource_status(ctx, resource_name, new_status)
 
 
-@step("claim is applied wrong")
-def render_wrong(ctx: Context):
-    # logger.info("render claim wrong")
-    assert False
-
-
 @step("log desired resources")
-def log_desired_resources(ctx: Context):
-    logger.info("desired resources")
-    # log to stdout and attach to allure step
-    # TODO
+def log_desired_resources(ctx: Context) -> None:
+    """Print the desired resources of the last render (debugging aid; shown in the behave output)."""
+    desired_resources = get_from_context(ctx, CTX_DESIRED_RESOURCES, assert_exists=True)
+    print(f"desired resources ({len(desired_resources)}): {', '.join(desired_resources.keys())}")
 
 
 @step("fail here")
-def fail_scenario(ctx: Context):
-    assert False
-
-
-# def compare_resources(expected_resources, desired_resources, compare_names_only: bool = False):
-#     """Compare resources
-#
-#     Arguments:
-#         expected_resources {dict} -- expected resources
-#         desired_resources {dict} -- desired resources
-#
-#     Keyword Arguments:
-#         compare_names_only {bool} -- compare only the names of the resources (default: {False})
-#
-#     Raises:
-#         AssertionError: resources are not equal
-#     """
-#     assert_that(desired_resources, is_not(none()), f"no desired resources found")
-#
-#     desired_resources_names = list(desired_resources.keys())
-#     assert_that(len(desired_resources_names), equal_to(
-#         len(expected_resources)), f"expected {len(expected_resources)} resources, got {len(desired_resources_names)}: {desired_resources_names}")
-#
-#     for r in desired_resources_names:
-#         if compare_names_only:
-#             assert_that(r in expected_resources, f"{r} not in expected desired resources {expected_resources}. Got desired resources are {desired_resources_names}")
-#         else:
-#             assert_that(desired_resources[r], equal_to(expected_resources[r]), f"resource {r} not equal")
+def fail_scenario(ctx: Context) -> None:
+    """Fail the scenario on purpose (debugging aid, e.g. to inspect the dumps in debug mode)."""
+    assert False, "scenario stopped by the 'fail here' step"

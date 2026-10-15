@@ -1,0 +1,23 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: CompositeResourceDefinition
+metadata:
+  name: xdefaulteds.defaulting.example.com
+spec:
+  group: defaulting.example.com
+  names:
+    kind: XDefaulted
+    plural: xdefaulteds
+  versions:
+    - name: v1alpha1
+      served: true
+      referenceable: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:
+                someParam:
+                  type: string
+                  default: from-xrd
