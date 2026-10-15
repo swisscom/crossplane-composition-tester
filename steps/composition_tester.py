@@ -126,6 +126,12 @@ def prepare_composition_directory(ctx: Context, composition_directory: str) -> N
     ctx.compositions_directory = compositions_directory
     ctx.composition_filepath = compositions_directory / "composition.yaml"
     ctx.definition_filepath = compositions_directory / "definition.yaml"
+    # The composition file is not asserted here: a subsequent 'input composition <file>' step may
+    # select a differently named file in this directory. Its existence is checked before rendering.
+    if not ctx.definition_filepath.is_file():
+        logger.warning(
+            f"definition file ({ctx.definition_filepath}) not found; "
+            "schema defaults will not be applied for this composition directory")
 
 
 @given("input compositions directory {compositions_directory}")
@@ -250,6 +256,9 @@ def render(ctx: Context) -> None:
     #  - observed resources
     #  - functions
     #  - context from the environment file
+
+    assert_that(Path(ctx.composition_filepath).is_file(),
+                f"composition file ({ctx.composition_filepath}) not found")
 
     args = prepare_render_args(ctx, log_input=ctx.debug_mode)
     
